@@ -1,0 +1,581 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserProgress } from '@/hooks/useUserProgress';
+import { useToast } from '@/hooks/use-toast';
+import { Button } from '@/components/ui/button';
+import ParrotMascot from '@/components/ParrotMascot';
+import ProgressBar from '@/components/ProgressBar';
+import Confetti from '@/components/Confetti';
+import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { Database } from '@/integrations/supabase/types';
+
+type Exercise = Database['public']['Tables']['exercises']['Row'];
+type Lesson = Database['public']['Tables']['lessons']['Row'];
+
+interface ExerciseOption {
+  text: string;
+  correct?: boolean;
+}
+
+const LessonPage: React.FC = () => {
+  const { lessonId } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { progress, updateProgress, refetch } = useUserProgress();
+  const { toast } = useToast();
+
+  const [lesson, setLesson] = useState<Lesson | null>(null);
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [typedAnswer, setTypedAnswer] = useState('');
+  const [wordBankAnswer, setWordBankAnswer] = useState<string[]>([]);
+  const [availableWords, setAvailableWords] = useState<string[]>([]);
+  const [matchedPairs, setMatchedPairs] = useState<Set<string>>(new Set());
+  const [selectedMatch, setSelectedMatch] = useState<string | null>(null);
+  const [isChecked, setIsChecked] = useState(false);
+  const [isCorrect, setIsCorrect] = useState(false);
+  const [lives, setLives] = useState(progress?.lives || 5);
+  const [xpEarned, setXpEarned] = useState(0);
+  const [mistakes, setMistakes] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isComplete, setIsComplete] = useState(false);
+  const [parrotMood, setParrotMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
+
+  useEffect(() => {
+    const loadLesson = async () => {
+      if (!lessonId) return;
+
+      try {
+        const [lessonRes, exercisesRes] = await Promise.all([
+          supabase.from('lessons').select('*').eq('id', lessonId).single(),
+          supabase.from('exercises').select('*').eq('lesson_id', lessonId).order('exercise_order'),
+        ]);
+
+        if (lessonRes.data) setLesson(lessonRes.data);
+        if (exercisesRes.data) setExercises(exercisesRes.data);
+      } catch (error) {
+        console.error('Error loading lesson:', error);
+        toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadLesson();
+  }, [lessonId, toast]);
+
+  useEffect(() => {
+    // Initialize word bank when exercise changes
+    const exercise = exercises[currentIndex];
+    if (exercise?.exercise_type === 'word_bank' && exercise.options) {
+      const words = (exercise.options as ExerciseOption[]).map(o => o.text);
+      setAvailableWords(shuffleArray([...words]));
+      setWordBankAnswer([]);
+    }
+    if (exercise?.exercise_type === 'match_pairs') {
+      setMatchedPairs(new Set());
+      setSelectedMatch(null);
+    }
+  }, [currentIndex, exercises]);
+
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  };
+
+  const currentExercise = exercises[currentIndex];
+
+  const checkAnswer = () => {
+    if (!currentExercise) return;
+
+    let correct = false;
+    const correctAnswer = currentExercise.correct_answer.toLowerCase().trim();
+
+    switch (currentExercise.exercise_type) {
+      case 'multiple_choice':
+      case 'select_sentence':
+        correct = selectedAnswer?.toLowerCase().trim() === correctAnswer;
+        break;
+      case 'translation':
+      case 'fill_blank':
+      case 'type_what_you_hear':
+        correct = typedAnswer.toLowerCase().trim() === correctAnswer;
+        break;
+      case 'word_bank':
+        correct = wordBankAnswer.join(' ').toLowerCase().trim() === correctAnswer;
+        break;
+      case 'match_pairs':
+        // Match pairs are checked as you go, so if we get here, it's complete
+        correct = true;
+        break;
+    }
+
+    setIsChecked(true);
+    setIsCorrect(correct);
+
+    if (correct) {
+      setXpEarned(prev => prev + 10);
+      setParrotMood('excited');
+      playSound('correct');
+    } else {
+      setLives(prev => prev - 1);
+      setMistakes(prev => prev + 1);
+      setParrotMood('sad');
+      playSound('incorrect');
+    }
+  };
+
+  const playSound = (type: 'correct' | 'incorrect') => {
+    // Web Audio API for sounds
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+
+    if (type === 'correct') {
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+      oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5
+      oscillator.frequency.setValueAtTime(783.99, audioContext.currentTime + 0.2); // G5
+    } else {
+      oscillator.frequency.setValueAtTime(200, audioContext.currentTime);
+    }
+
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.3);
+  };
+
+  const nextExercise = async () => {
+    if (currentIndex < exercises.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      resetState();
+    } else {
+      // Lesson complete
+      await completeLesson();
+    }
+  };
+
+  const resetState = () => {
+    setSelectedAnswer(null);
+    setTypedAnswer('');
+    setWordBankAnswer([]);
+    setIsChecked(false);
+    setIsCorrect(false);
+    setParrotMood('happy');
+  };
+
+  const completeLesson = async () => {
+    if (!lesson || !user) return;
+
+    setIsComplete(true);
+    setShowConfetti(true);
+    setParrotMood('celebrating');
+
+    const finalXp = xpEarned + (lesson.xp_reward || 0);
+    const isPerfect = mistakes === 0;
+
+    try {
+      // Record completion
+      await supabase.from('lesson_completions').insert({
+        user_id: user.id,
+        lesson_id: lesson.id,
+        xp_earned: finalXp,
+        mistakes,
+        perfect_score: isPerfect,
+      });
+
+      // Update progress
+      await updateProgress({
+        total_xp: (progress?.total_xp || 0) + finalXp,
+        today_xp: (progress?.today_xp || 0) + finalXp,
+        lives,
+      });
+
+      await refetch();
+    } catch (error) {
+      console.error('Error completing lesson:', error);
+    }
+  };
+
+  const handleWordBankClick = (word: string, fromAnswer: boolean) => {
+    if (fromAnswer) {
+      setWordBankAnswer(prev => prev.filter(w => w !== word));
+      setAvailableWords(prev => [...prev, word]);
+    } else {
+      setAvailableWords(prev => prev.filter(w => w !== word));
+      setWordBankAnswer(prev => [...prev, word]);
+    }
+  };
+
+  const handleMatchClick = (item: string, isLeft: boolean) => {
+    if (matchedPairs.has(item)) return;
+
+    if (!selectedMatch) {
+      setSelectedMatch(item);
+    } else {
+      // Check if it's a valid pair
+      const options = currentExercise?.options as Array<{ left: string; right: string }>;
+      const pair = options?.find(p => 
+        (p.left === selectedMatch && p.right === item) ||
+        (p.right === selectedMatch && p.left === item)
+      );
+
+      if (pair) {
+        setMatchedPairs(prev => new Set([...prev, pair.left, pair.right]));
+        if (matchedPairs.size + 2 === (options?.length || 0) * 2) {
+          // All matched
+          setIsChecked(true);
+          setIsCorrect(true);
+          setXpEarned(prev => prev + 10);
+          setParrotMood('excited');
+          playSound('correct');
+        }
+      } else {
+        setLives(prev => prev - 1);
+        setMistakes(prev => prev + 1);
+        playSound('incorrect');
+      }
+      setSelectedMatch(null);
+    }
+  };
+
+  const speakText = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es'; // TODO: Make dynamic based on language
+    speechSynthesis.speak(utterance);
+  };
+
+  const handleExit = () => {
+    navigate('/learn');
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <ParrotMascot mood="thinking" size="lg" animate />
+      </div>
+    );
+  }
+
+  if (isComplete) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        {showConfetti && <Confetti />}
+        <ParrotMascot mood="celebrating" size="xl" animate className="mb-6" />
+        <h1 className="text-3xl font-bold mb-2">Lesson Complete!</h1>
+        <p className="text-muted-foreground mb-8">Great job finishing the lesson</p>
+        
+        <div className="bg-card rounded-2xl p-6 w-full max-w-sm shadow-lg mb-6">
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p className="text-3xl font-bold text-xp">{xpEarned + (lesson?.xp_reward || 0)}</p>
+              <p className="text-sm text-muted-foreground">XP Earned</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-success">{Math.round(((exercises.length - mistakes) / exercises.length) * 100)}%</p>
+              <p className="text-sm text-muted-foreground">Accuracy</p>
+            </div>
+          </div>
+          {mistakes === 0 && (
+            <div className="mt-4 text-center">
+              <span className="inline-block bg-success/10 text-success px-3 py-1 rounded-full text-sm font-medium">
+                ⭐ Perfect Score!
+              </span>
+            </div>
+          )}
+        </div>
+
+        <Button 
+          onClick={() => navigate('/learn')} 
+          className="w-full max-w-sm h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"
+        >
+          Continue
+        </Button>
+      </div>
+    );
+  }
+
+  if (lives <= 0) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <ParrotMascot mood="sad" size="xl" animate className="mb-6" />
+        <h1 className="text-3xl font-bold mb-2">Out of Hearts!</h1>
+        <p className="text-muted-foreground mb-8">Practice more or wait for hearts to regenerate</p>
+        
+        <div className="space-y-3 w-full max-w-sm">
+          <Button 
+            onClick={() => navigate('/review')} 
+            className="w-full h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"
+          >
+            Practice to Earn Hearts
+          </Button>
+          <Button 
+            onClick={() => navigate('/shop')} 
+            variant="outline"
+            className="w-full h-14 text-lg font-bold rounded-2xl"
+          >
+            Refill Hearts
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
+        <div className="flex items-center gap-4 max-w-lg mx-auto">
+          <button onClick={handleExit} className="p-2 hover:bg-muted rounded-full">
+            <X className="w-5 h-5" />
+          </button>
+          <ProgressBar 
+            value={currentIndex + 1} 
+            max={exercises.length} 
+            variant="primary" 
+            size="md"
+            className="flex-1"
+          />
+          <div className="flex items-center gap-1 text-heart">
+            <Heart className="w-5 h-5 fill-current" />
+            <span className="font-bold">{lives}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 px-4 py-6 max-w-lg mx-auto w-full flex flex-col">
+        {currentExercise && (
+          <>
+            {/* Exercise Type Label */}
+            <p className="text-sm text-muted-foreground mb-2 capitalize">
+              {currentExercise.exercise_type.replace('_', ' ')}
+            </p>
+
+            {/* Question */}
+            <div className="mb-6">
+              <div className="flex items-start gap-3">
+                <ParrotMascot mood={parrotMood} size="sm" />
+                <div className="bg-card rounded-2xl p-4 shadow-sm flex-1">
+                  <p className="text-lg font-semibold">{currentExercise.question}</p>
+                  {currentExercise.hint && !isChecked && (
+                    <p className="text-sm text-muted-foreground mt-1">💡 {currentExercise.hint}</p>
+                  )}
+                </div>
+              </div>
+              
+              {/* Audio button for listening exercises */}
+              {(currentExercise.exercise_type === 'type_what_you_hear' || currentExercise.audio_url) && (
+                <button
+                  onClick={() => speakText(currentExercise.correct_answer)}
+                  className="mt-4 w-full bg-primary/10 hover:bg-primary/20 rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Volume2 className="w-6 h-6 text-primary" />
+                  <span className="font-medium text-primary">Tap to listen</span>
+                </button>
+              )}
+            </div>
+
+            {/* Answer Area */}
+            <div className="flex-1 space-y-3">
+              {/* Multiple Choice / Select Sentence */}
+              {(currentExercise.exercise_type === 'multiple_choice' || 
+                currentExercise.exercise_type === 'select_sentence') && 
+                currentExercise.options && (
+                <div className="space-y-3">
+                  {(currentExercise.options as ExerciseOption[]).map((option, i) => (
+                    <button
+                      key={i}
+                      onClick={() => !isChecked && setSelectedAnswer(option.text)}
+                      disabled={isChecked}
+                      className={cn(
+                        'w-full p-4 rounded-2xl border-2 text-left transition-all',
+                        selectedAnswer === option.text && !isChecked && 'border-primary bg-primary/10',
+                        isChecked && option.text.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
+                        isChecked && selectedAnswer === option.text && !isCorrect && 'border-destructive bg-destructive/10',
+                        !selectedAnswer && !isChecked && 'border-border hover:border-primary/50',
+                        isChecked && selectedAnswer !== option.text && option.text.toLowerCase() !== currentExercise.correct_answer.toLowerCase() && 'opacity-50'
+                      )}
+                    >
+                      {option.text}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Translation / Fill Blank / Type What You Hear */}
+              {(currentExercise.exercise_type === 'translation' || 
+                currentExercise.exercise_type === 'fill_blank' ||
+                currentExercise.exercise_type === 'type_what_you_hear') && (
+                <div>
+                  <input
+                    type="text"
+                    value={typedAnswer}
+                    onChange={(e) => setTypedAnswer(e.target.value)}
+                    disabled={isChecked}
+                    placeholder="Type your answer..."
+                    className={cn(
+                      'w-full p-4 rounded-2xl border-2 bg-card text-lg',
+                      isChecked && isCorrect && 'border-success bg-success/10',
+                      isChecked && !isCorrect && 'border-destructive bg-destructive/10',
+                      !isChecked && 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
+                    )}
+                  />
+                  {isChecked && !isCorrect && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Correct answer: <span className="text-success font-medium">{currentExercise.correct_answer}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Word Bank */}
+              {currentExercise.exercise_type === 'word_bank' && (
+                <div className="space-y-6">
+                  {/* Answer area */}
+                  <div className={cn(
+                    'min-h-16 p-4 rounded-2xl border-2 border-dashed flex flex-wrap gap-2',
+                    isChecked && isCorrect && 'border-success bg-success/10',
+                    isChecked && !isCorrect && 'border-destructive bg-destructive/10',
+                    !isChecked && 'border-border'
+                  )}>
+                    {wordBankAnswer.length === 0 && (
+                      <span className="text-muted-foreground">Tap words to build your answer</span>
+                    )}
+                    {wordBankAnswer.map((word, i) => (
+                      <button
+                        key={i}
+                        onClick={() => !isChecked && handleWordBankClick(word, true)}
+                        disabled={isChecked}
+                        className="px-3 py-2 bg-primary text-primary-foreground rounded-xl font-medium"
+                      >
+                        {word}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Available words */}
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {availableWords.map((word, i) => (
+                      <button
+                        key={i}
+                        onClick={() => !isChecked && handleWordBankClick(word, false)}
+                        disabled={isChecked}
+                        className="px-3 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
+                      >
+                        {word}
+                      </button>
+                    ))}
+                  </div>
+
+                  {isChecked && !isCorrect && (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Correct answer: <span className="text-success font-medium">{currentExercise.correct_answer}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Match Pairs */}
+              {currentExercise.exercise_type === 'match_pairs' && currentExercise.options && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    {(currentExercise.options as Array<{left: string; right: string}>).map((pair, i) => (
+                      <button
+                        key={`left-${i}`}
+                        onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left, true)}
+                        disabled={matchedPairs.has(pair.left)}
+                        className={cn(
+                          'w-full p-4 rounded-xl border-2 transition-all',
+                          matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
+                          selectedMatch === pair.left && 'border-primary bg-primary/10',
+                          !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        {pair.left}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="space-y-3">
+                    {shuffleArray((currentExercise.options as Array<{left: string; right: string}>)).map((pair, i) => (
+                      <button
+                        key={`right-${i}`}
+                        onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right, false)}
+                        disabled={matchedPairs.has(pair.right)}
+                        className={cn(
+                          'w-full p-4 rounded-xl border-2 transition-all',
+                          matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
+                          selectedMatch === pair.right && 'border-primary bg-primary/10',
+                          !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        {pair.right}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </main>
+
+      {/* Footer */}
+      <footer className="sticky bottom-0 bg-card border-t border-border p-4">
+        <div className="max-w-lg mx-auto">
+          {!isChecked ? (
+            <Button
+              onClick={checkAnswer}
+              disabled={
+                (currentExercise?.exercise_type === 'multiple_choice' && !selectedAnswer) ||
+                (currentExercise?.exercise_type === 'select_sentence' && !selectedAnswer) ||
+                (currentExercise?.exercise_type === 'translation' && !typedAnswer) ||
+                (currentExercise?.exercise_type === 'fill_blank' && !typedAnswer) ||
+                (currentExercise?.exercise_type === 'type_what_you_hear' && !typedAnswer) ||
+                (currentExercise?.exercise_type === 'word_bank' && wordBankAnswer.length === 0)
+              }
+              className="w-full h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"
+            >
+              Check
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <div className={cn(
+                'p-4 rounded-2xl text-center',
+                isCorrect ? 'bg-success/10 text-success' : 'bg-destructive/10 text-destructive'
+              )}>
+                <p className="font-bold text-lg">
+                  {isCorrect ? '🎉 Correct!' : '❌ Not quite right'}
+                </p>
+              </div>
+              <Button
+                onClick={nextExercise}
+                className={cn(
+                  'w-full h-14 text-lg font-bold rounded-2xl',
+                  isCorrect ? 'gradient-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
+                )}
+              >
+                Continue <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </div>
+          )}
+        </div>
+      </footer>
+    </div>
+  );
+};
+
+export default LessonPage;
