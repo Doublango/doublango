@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ProgressBarProps {
@@ -25,18 +25,18 @@ const sizeClasses = {
   lg: 'h-4',
 };
 
-export const ProgressBar: React.FC<ProgressBarProps> = ({
+export const ProgressBar = forwardRef<HTMLDivElement, ProgressBarProps>(({
   value,
   max,
   variant = 'primary',
   size = 'md',
   showLabel = false,
   className,
-}) => {
+}, ref) => {
   const percentage = Math.min(Math.max((value / max) * 100, 0), 100);
 
   return (
-    <div className={cn('w-full', className)}>
+    <div ref={ref} className={cn('w-full', className)}>
       {showLabel && (
         <div className="flex justify-between text-sm mb-1">
           <span className="text-muted-foreground">Progress</span>
@@ -51,6 +51,8 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
       </div>
     </div>
   );
-};
+});
+
+ProgressBar.displayName = 'ProgressBar';
 
 export default ProgressBar;
