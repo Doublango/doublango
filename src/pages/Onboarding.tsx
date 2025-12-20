@@ -27,12 +27,23 @@ const Onboarding: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      // Update profile settings
       await supabase.from('profiles').update({ daily_goal_xp: dailyGoal, motivation }).eq('id', user.id);
-      await supabase.from('user_courses').insert({ 
-        user_id: user.id, 
-        language_code: selectedLanguage as LanguageCode, 
-        is_active: true 
-      });
+      
+      // Deactivate all existing courses first
+      await supabase.from('user_courses').update({ is_active: false }).eq('user_id', user.id);
+      
+      // Upsert the selected course (insert or update if exists)
+      const { error: courseError } = await supabase.from('user_courses').upsert(
+        { 
+          user_id: user.id, 
+          language_code: selectedLanguage as LanguageCode, 
+          is_active: true 
+        },
+        { onConflict: 'user_id,language_code' }
+      );
+      
+      if (courseError) throw courseError;
       
       navigate('/home');
     } catch (error: unknown) {
