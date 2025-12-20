@@ -7,10 +7,13 @@ import ParrotMascot from '@/components/ParrotMascot';
 import { LANGUAGES, DAILY_GOALS, MOTIVATIONS } from '@/lib/languages';
 import { Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import type { Database } from '@/integrations/supabase/types';
+
+type LanguageCode = Database['public']['Enums']['language_code'];
 
 const Onboarding: React.FC = () => {
   const [step, setStep] = useState(1);
-  const [selectedLanguage, setSelectedLanguage] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode | ''>('');
   const [dailyGoal, setDailyGoal] = useState(20);
   const [motivation, setMotivation] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,13 +21,18 @@ const Onboarding: React.FC = () => {
   const { toast } = useToast();
 
   const handleComplete = async () => {
+    if (!selectedLanguage) return;
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
       await supabase.from('profiles').update({ daily_goal_xp: dailyGoal, motivation }).eq('id', user.id);
-      await supabase.from('user_courses').insert({ user_id: user.id, language_code: selectedLanguage, is_active: true });
+      await supabase.from('user_courses').insert({ 
+        user_id: user.id, 
+        language_code: selectedLanguage as LanguageCode, 
+        is_active: true 
+      });
       
       navigate('/home');
     } catch (error: unknown) {
@@ -54,7 +62,7 @@ const Onboarding: React.FC = () => {
               {LANGUAGES.map((lang) => (
                 <button
                   key={lang.code}
-                  onClick={() => setSelectedLanguage(lang.code)}
+                  onClick={() => setSelectedLanguage(lang.code as LanguageCode)}
                   className={cn(
                     'p-4 rounded-2xl border-2 text-left transition-all',
                     selectedLanguage === lang.code ? 'border-primary bg-primary/10 shadow-glow' : 'border-border hover:border-primary/50'
