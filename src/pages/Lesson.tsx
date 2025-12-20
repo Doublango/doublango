@@ -73,7 +73,7 @@ const LessonPage: React.FC = () => {
     // Initialize word bank when exercise changes
     const exercise = exercises[currentIndex];
     if (exercise?.exercise_type === 'word_bank' && exercise.options) {
-      const words = (exercise.options as ExerciseOption[]).map(o => o.text);
+      const words = (exercise.options as unknown as ExerciseOption[]).map(o => o.text);
       setAvailableWords(shuffleArray([...words]));
       setWordBankAnswer([]);
     }
@@ -273,7 +273,7 @@ const LessonPage: React.FC = () => {
   if (isComplete) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        {showConfetti && <Confetti />}
+        {showConfetti && <Confetti trigger={showConfetti} />}
         <ParrotMascot mood="celebrating" size="xl" animate className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">Lesson Complete!</h1>
         <p className="text-muted-foreground mb-8">Great job finishing the lesson</p>
@@ -396,7 +396,7 @@ const LessonPage: React.FC = () => {
                 currentExercise.exercise_type === 'select_sentence') && 
                 currentExercise.options && (
                 <div className="space-y-3">
-                  {(currentExercise.options as ExerciseOption[]).map((option, i) => (
+                  {(currentExercise.options as unknown as ExerciseOption[]).map((option, i) => (
                     <button
                       key={i}
                       onClick={() => !isChecked && setSelectedAnswer(option.text)}
