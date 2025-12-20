@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
+import { cn } from '@/lib/utils';
 
 interface ParrotMascotProps {
   mood?: 'happy' | 'excited' | 'sad' | 'thinking' | 'celebrating';
@@ -22,12 +23,12 @@ const moodAnimations = {
   celebrating: 'parrot-celebrate',
 };
 
-export const ParrotMascot: React.FC<ParrotMascotProps> = ({
+export const ParrotMascot = forwardRef<HTMLDivElement, ParrotMascotProps>(({
   mood = 'happy',
   size = 'md',
   className = '',
   animate = true,
-}) => {
+}, ref) => {
   const getMoodExpression = () => {
     switch (mood) {
       case 'excited':
@@ -46,7 +47,7 @@ export const ParrotMascot: React.FC<ParrotMascotProps> = ({
   const animationClass = animate ? moodAnimations[mood] : '';
 
   return (
-    <div className={`${sizeClasses[size]} ${animationClass} ${className}`}>
+    <div ref={ref} className={cn(sizeClasses[size], animationClass, className)}>
       <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
         {/* Body - vibrant blue gradient */}
         <ellipse cx="50" cy="60" rx="28" ry="32" fill="url(#bodyGradient)" />
@@ -150,6 +151,8 @@ export const ParrotMascot: React.FC<ParrotMascotProps> = ({
       </svg>
     </div>
   );
-};
+});
+
+ParrotMascot.displayName = 'ParrotMascot';
 
 export default ParrotMascot;
