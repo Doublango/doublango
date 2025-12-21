@@ -17,19 +17,19 @@ const Home: React.FC = () => {
   const { profile, progress, activeCourse, loading: progressLoading, refetch } = useUserProgress();
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
 
-  // Redirect to auth if not logged in
+  // Redirect to auth if not logged in (only after auth check is complete)
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/');
+      navigate('/auth');
     }
   }, [user, authLoading, navigate]);
 
-  // Redirect to onboarding if not completed
+  // Redirect to onboarding if not completed (wait for both auth and progress to load)
   useEffect(() => {
-    if (!progressLoading && user && profile && !profile.onboarding_completed) {
+    if (!authLoading && !progressLoading && user && profile && !profile.onboarding_completed) {
       navigate('/onboarding');
     }
-  }, [profile, progressLoading, user, navigate]);
+  }, [profile, progressLoading, authLoading, user, navigate]);
 
   // Find next lesson
   useEffect(() => {

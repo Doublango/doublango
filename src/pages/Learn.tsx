@@ -26,11 +26,12 @@ const Learn: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
 
+  // Only redirect to auth AFTER loading is complete and we're sure there's no user
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !progressLoading && !user) {
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, progressLoading, navigate]);
 
   useEffect(() => {
     const loadUnits = async () => {
