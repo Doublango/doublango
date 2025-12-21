@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import BottomNavigation from '@/components/BottomNavigation';
-import ParrotMascot from '@/components/ParrotMascot';
+import MonkeyMascot from '@/components/MonkeyMascot';
 import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -116,7 +116,7 @@ const Learn: React.FC = () => {
   if (authLoading || progressLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <ParrotMascot mood="thinking" size="lg" animate />
+        <MonkeyMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -220,7 +220,7 @@ const Learn: React.FC = () => {
 
           {units.length === 0 && (
             <div className="text-center py-12">
-              <ParrotMascot mood="sad" size="lg" className="mx-auto mb-4" />
+              <MonkeyMascot mood="sad" size="lg" className="mx-auto mb-4" />
               <h2 className="text-xl font-bold mb-2">No lessons available</h2>
               <p className="text-muted-foreground">Content for this language is coming soon!</p>
             </div>

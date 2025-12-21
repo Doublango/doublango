@@ -60,7 +60,13 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // LinguaBird custom colors
+        // LangoMonkey custom colors
+        banana: {
+          DEFAULT: "hsl(var(--banana))",
+          foreground: "hsl(var(--banana-foreground))",
+          light: "hsl(var(--banana-light))",
+          dark: "hsl(var(--banana-dark))",
+        },
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
@@ -76,10 +82,6 @@ export default {
         streak: {
           DEFAULT: "hsl(var(--streak))",
           foreground: "hsl(var(--streak-foreground))",
-        },
-        crystal: {
-          DEFAULT: "hsl(var(--crystal))",
-          foreground: "hsl(var(--crystal-foreground))",
         },
         heart: {
           DEFAULT: "hsl(var(--heart))",
@@ -99,6 +101,7 @@ export default {
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
         glow: "var(--shadow-glow)",
+        banana: "var(--shadow-banana)",
         success: "var(--shadow-success)",
       },
       keyframes: {
@@ -124,8 +127,8 @@ export default {
           "50%": { transform: "translateY(-10px)" },
         },
         "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--primary) / 0.4)" },
-          "50%": { boxShadow: "0 0 20px 10px hsl(var(--primary) / 0)" },
+          "0%, 100%": { boxShadow: "0 0 0 0 hsl(var(--banana) / 0.4)" },
+          "50%": { boxShadow: "0 0 20px 10px hsl(var(--banana) / 0)" },
         },
         "slide-up": {
           from: { transform: "translateY(100%)", opacity: "0" },
@@ -139,6 +142,11 @@ export default {
           from: { transform: "scale(0.9)", opacity: "0" },
           to: { transform: "scale(1)", opacity: "1" },
         },
+        "banana-spin": {
+          "0%": { transform: "rotate(0deg) scale(1)" },
+          "50%": { transform: "rotate(180deg) scale(1.2)" },
+          "100%": { transform: "rotate(360deg) scale(1)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -150,6 +158,7 @@ export default {
         "slide-up": "slide-up 0.3s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
         "scale-in": "scale-in 0.2s ease-out",
+        "banana-spin": "banana-spin 0.8s ease-in-out",
       },
     },
   },

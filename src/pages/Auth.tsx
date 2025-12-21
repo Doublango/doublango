@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import ParrotMascot from '@/components/ParrotMascot';
+import MonkeyMascot from '@/components/MonkeyMascot';
 import { ArrowLeft, Mail, Lock, User } from 'lucide-react';
 
 const Auth: React.FC = () => {
@@ -54,7 +54,7 @@ const Auth: React.FC = () => {
       </button>
 
       <div className="flex-1 flex flex-col items-center justify-center max-w-md mx-auto w-full">
-        <ParrotMascot mood="happy" size="lg" className="mb-6" />
+        <MonkeyMascot mood="happy" size="lg" className="mb-6" />
         
         <h1 className="text-3xl font-bold mb-2">{isLogin ? 'Welcome Back!' : 'Create Account'}</h1>
         <p className="text-muted-foreground mb-8">

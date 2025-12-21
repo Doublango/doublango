@@ -4,12 +4,12 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LinguaBird Design System - Vibrant, Playful, Engaging */
+/* LangoMonkey Design System - Bright, Fun, Banana-themed! */
 
 @layer base {
   :root {
-    /* Core brand colors - Blue/Purple vibrant palette */
-    --background: 220 30% 98%;
+    /* Core brand colors - Yellow/Orange banana with purple/blue accents */
+    --background: 250 30% 98%;
     --foreground: 230 25% 18%;
 
     --card: 0 0% 100%;
@@ -18,32 +18,37 @@
     --popover: 0 0% 100%;
     --popover-foreground: 230 25% 18%;
 
-    /* Primary - Vibrant Blue */
-    --primary: 217 91% 60%;
+    /* Primary - Vibrant Purple */
+    --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
 
-    /* Secondary - Soft Purple */
-    --secondary: 270 60% 70%;
+    /* Secondary - Blue accent */
+    --secondary: 217 91% 60%;
     --secondary-foreground: 0 0% 100%;
 
     /* Muted */
-    --muted: 220 20% 94%;
-    --muted-foreground: 220 15% 45%;
+    --muted: 250 20% 94%;
+    --muted-foreground: 250 15% 45%;
 
-    /* Accent - Coral/Orange for energy */
-    --accent: 15 90% 60%;
+    /* Accent - Orange energy */
+    --accent: 25 95% 53%;
     --accent-foreground: 0 0% 100%;
 
     /* Destructive */
     --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 20% 88%;
-    --input: 220 20% 88%;
-    --ring: 217 91% 60%;
+    --border: 250 20% 88%;
+    --input: 250 20% 88%;
+    --ring: 45 93% 58%;
     --radius: 1rem;
 
-    /* Custom LinguaBird tokens */
+    /* LangoMonkey Banana tokens */
+    --banana: 45 93% 58%;
+    --banana-foreground: 30 30% 15%;
+    --banana-light: 48 96% 76%;
+    --banana-dark: 38 92% 50%;
+    
     --success: 145 70% 45%;
     --success-foreground: 0 0% 100%;
     
@@ -56,25 +61,23 @@
     --streak: 25 95% 55%;
     --streak-foreground: 0 0% 100%;
     
-    --crystal: 195 90% 55%;
-    --crystal-foreground: 0 0% 100%;
-    
     --heart: 350 85% 60%;
     --heart-foreground: 0 0% 100%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(270 60% 65%));
+    --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(217 91% 60%));
+    --gradient-banana: linear-gradient(135deg, hsl(45 93% 58%), hsl(38 92% 50%));
     --gradient-success: linear-gradient(135deg, hsl(145 70% 45%), hsl(165 70% 50%));
     --gradient-streak: linear-gradient(135deg, hsl(25 95% 55%), hsl(40 95% 55%));
-    --gradient-crystal: linear-gradient(135deg, hsl(195 90% 55%), hsl(210 90% 60%));
     --gradient-xp: linear-gradient(135deg, hsl(270 80% 60%), hsl(290 70% 55%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 30% 97%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(250 30% 97%));
 
     /* Shadows */
     --shadow-sm: 0 2px 8px -2px hsl(230 25% 18% / 0.08);
     --shadow-md: 0 4px 16px -4px hsl(230 25% 18% / 0.12);
     --shadow-lg: 0 8px 32px -8px hsl(230 25% 18% / 0.16);
-    --shadow-glow: 0 0 20px hsl(217 91% 60% / 0.3);
+    --shadow-glow: 0 0 20px hsl(262 83% 58% / 0.3);
+    --shadow-banana: 0 4px 20px -4px hsl(45 93% 58% / 0.5);
     --shadow-success: 0 4px 16px -4px hsl(145 70% 45% / 0.4);
 
     --sidebar-background: 0 0% 98%;
@@ -84,43 +87,47 @@
     --sidebar-accent: 240 4.8% 95.9%;
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 45 93% 58%;
   }
 
   .dark {
-    --background: 230 25% 10%;
-    --foreground: 220 20% 95%;
+    --background: 250 25% 8%;
+    --foreground: 250 20% 95%;
 
-    --card: 230 25% 14%;
-    --card-foreground: 220 20% 95%;
+    --card: 250 25% 12%;
+    --card-foreground: 250 20% 95%;
 
-    --popover: 230 25% 14%;
-    --popover-foreground: 220 20% 95%;
+    --popover: 250 25% 12%;
+    --popover-foreground: 250 20% 95%;
 
-    --primary: 217 91% 65%;
-    --primary-foreground: 230 25% 10%;
+    --primary: 262 80% 65%;
+    --primary-foreground: 250 25% 8%;
 
-    --secondary: 270 50% 55%;
+    --secondary: 217 85% 55%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 230 20% 20%;
-    --muted-foreground: 220 15% 60%;
+    --muted: 250 20% 18%;
+    --muted-foreground: 250 15% 60%;
 
-    --accent: 15 85% 55%;
+    --accent: 25 90% 55%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 65% 50%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 230 20% 22%;
-    --input: 230 20% 22%;
-    --ring: 217 91% 65%;
+    --border: 250 20% 20%;
+    --input: 250 20% 20%;
+    --ring: 45 93% 58%;
+
+    --banana: 45 90% 55%;
+    --banana-foreground: 30 30% 10%;
+    --banana-light: 48 92% 70%;
+    --banana-dark: 38 88% 45%;
 
     --success: 145 65% 40%;
     --warning: 45 90% 50%;
     --xp: 270 75% 55%;
     --streak: 25 90% 50%;
-    --crystal: 195 85% 50%;
     --heart: 350 80% 55%;
 
     --sidebar-background: 240 5.9% 10%;
@@ -130,7 +137,7 @@
     --sidebar-accent: 240 3.7% 15.9%;
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-ring: 45 93% 58%;
   }
 }
 
@@ -207,17 +214,17 @@
     @apply animate-shake bg-destructive/20 border-destructive;
   }
 
-  /* Parrot mascot animations */
-  .parrot-bounce {
-    animation: parrot-bounce 0.6s ease-in-out;
+  /* Monkey mascot animations */
+  .monkey-bounce {
+    animation: monkey-bounce 0.6s ease-in-out;
   }
 
-  .parrot-celebrate {
-    animation: parrot-celebrate 1s ease-in-out;
+  .monkey-celebrate {
+    animation: monkey-celebrate 1s ease-in-out;
   }
 
-  .parrot-sad {
-    animation: parrot-sad 0.5s ease-in-out;
+  .monkey-sad {
+    animation: monkey-sad 0.5s ease-in-out;
   }
 
   /* Confetti burst */
@@ -232,16 +239,16 @@
     background: var(--gradient-primary);
   }
   
+  .gradient-banana {
+    background: var(--gradient-banana);
+  }
+  
   .gradient-success {
     background: var(--gradient-success);
   }
   
   .gradient-streak {
     background: var(--gradient-streak);
-  }
-  
-  .gradient-crystal {
-    background: var(--gradient-crystal);
   }
   
   .gradient-xp {
@@ -251,6 +258,10 @@
   /* Shadow utilities */
   .shadow-glow {
     box-shadow: var(--shadow-glow);
+  }
+
+  .shadow-banana {
+    box-shadow: var(--shadow-banana);
   }
 
   .shadow-success {
@@ -267,27 +278,33 @@
     @apply bg-clip-text text-transparent;
     background: var(--gradient-primary);
   }
+
+  .text-gradient-banana {
+    @apply bg-clip-text text-transparent;
+    background: var(--gradient-banana);
+  }
 }
 
 /* Keyframe animations */
-@keyframes parrot-bounce {
+@keyframes monkey-bounce {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  25% { transform: translateY(-10px) rotate(-5deg); }
-  50% { transform: translateY(-5px) rotate(5deg); }
-  75% { transform: translateY(-8px) rotate(-3deg); }
+  25% { transform: translateY(-15px) rotate(-8deg); }
+  50% { transform: translateY(-8px) rotate(8deg); }
+  75% { transform: translateY(-12px) rotate(-4deg); }
 }
 
-@keyframes parrot-celebrate {
+@keyframes monkey-celebrate {
   0% { transform: scale(1) rotate(0deg); }
-  25% { transform: scale(1.2) rotate(-10deg); }
-  50% { transform: scale(1.1) rotate(10deg); }
-  75% { transform: scale(1.15) rotate(-5deg); }
+  20% { transform: scale(1.2) rotate(-15deg); }
+  40% { transform: scale(1.1) rotate(15deg); }
+  60% { transform: scale(1.15) rotate(-10deg); }
+  80% { transform: scale(1.1) rotate(10deg); }
   100% { transform: scale(1) rotate(0deg); }
 }
 
-@keyframes parrot-sad {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(5px); }
+@keyframes monkey-sad {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(8px) rotate(-3deg); }
 }
 
 @keyframes bounce-success {
@@ -307,8 +324,8 @@
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.4); }
-  50% { box-shadow: 0 0 20px 10px hsl(var(--primary) / 0); }
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--banana) / 0.4); }
+  50% { box-shadow: 0 0 20px 10px hsl(var(--banana) / 0); }
 }
 
 @keyframes slide-up {
@@ -329,6 +346,12 @@
 @keyframes confetti-fall {
   0% { transform: translateY(-100%) rotate(0deg); opacity: 1; }
   100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+}
+
+@keyframes banana-spin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.2); }
+  100% { transform: rotate(360deg) scale(1); }
 }
 
 /* Animation classes */
@@ -358,6 +381,10 @@
 
 .animate-scale-in {
   animation: scale-in 0.2s ease-out;
+}
+
+.animate-banana-spin {
+  animation: banana-spin 0.8s ease-in-out;
 }
 
 /* Safe area for mobile */
