@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import BottomNavigation from '@/components/BottomNavigation';
-import ParrotMascot from '@/components/ParrotMascot';
+import MonkeyMascot from '@/components/MonkeyMascot';
 import { Button } from '@/components/ui/button';
 import { 
   User, Settings, LogOut, Trophy, Flame, Zap, Star, 
@@ -40,7 +40,7 @@ const Profile: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <ParrotMascot mood="thinking" size="lg" animate />
+        <MonkeyMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -65,7 +65,7 @@ const Profile: React.FC = () => {
               {profile?.avatar_url ? (
                 <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
               ) : (
-                <ParrotMascot mood="happy" size="sm" />
+                <MonkeyMascot mood="happy" size="sm" />
               )}
             </div>
             <div className="flex-1">

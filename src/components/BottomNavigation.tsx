@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, RotateCcw, Trophy, User, ShoppingBag } from 'lucide-react';
+import { Home, BookOpen, RotateCcw, Trophy, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface NavItem {
@@ -10,19 +10,24 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
-  { path: '/', icon: Home, label: 'Home' },
+  { path: '/home', icon: Home, label: 'Home' },
   { path: '/learn', icon: BookOpen, label: 'Learn' },
   { path: '/review', icon: RotateCcw, label: 'Review' },
   { path: '/leaderboard', icon: Trophy, label: 'League' },
-  { path: '/shop', icon: ShoppingBag, label: 'Shop' },
   { path: '/profile', icon: User, label: 'Profile' },
 ];
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation();
 
-  // Don't show navigation on auth or onboarding pages
-  if (location.pathname.startsWith('/auth') || location.pathname.startsWith('/onboarding') || location.pathname.startsWith('/lesson')) {
+  // Don't show navigation on auth, onboarding, lesson, or landing pages
+  if (
+    location.pathname === '/' ||
+    location.pathname.startsWith('/auth') || 
+    location.pathname.startsWith('/onboarding') || 
+    location.pathname.startsWith('/lesson') ||
+    location.pathname.startsWith('/timed-challenge')
+  ) {
     return null;
   }
 
