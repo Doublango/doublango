@@ -207,6 +207,7 @@ export type Database = {
           id: string
           motivation: string | null
           native_language: string | null
+          onboarding_completed: boolean
           updated_at: string | null
           username: string | null
         }
@@ -218,6 +219,7 @@ export type Database = {
           id: string
           motivation?: string | null
           native_language?: string | null
+          onboarding_completed?: boolean
           updated_at?: string | null
           username?: string | null
         }
@@ -229,6 +231,7 @@ export type Database = {
           id?: string
           motivation?: string | null
           native_language?: string | null
+          onboarding_completed?: boolean
           updated_at?: string | null
           username?: string | null
         }
