@@ -13,8 +13,7 @@ import Lesson from "./pages/Lesson";
 import Review from "./pages/Review";
 import TimedChallenge from "./pages/TimedChallenge";
 import PlacementTest from "./pages/PlacementTest";
-import Leaderboard from "./pages/Leaderboard";
-import Shop from "./pages/Shop";
+import Languages from "./pages/Languages";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
@@ -39,8 +38,7 @@ const App = () => (
             <Route path="/review/:mode" element={<Review />} />
             <Route path="/timed-challenge" element={<TimedChallenge />} />
             <Route path="/placement-test" element={<PlacementTest />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/shop" element={<Shop />} />
+            <Route path="/languages" element={<Languages />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
