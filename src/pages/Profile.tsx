@@ -51,7 +51,7 @@ const Profile: React.FC = () => {
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <h1 className="font-bold text-lg">Profile</h1>
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
             <Settings className="w-5 h-5" />
           </Button>
         </div>
@@ -85,12 +85,12 @@ const Profile: React.FC = () => {
             <Crown className="w-6 h-6" />
             <div>
               <p className="font-bold">Free Plan</p>
-              <p className="text-sm opacity-80">Upgrade for unlimited features</p>
+              <p className="text-sm opacity-80">Go unlimited from £4.99/month</p>
             </div>
           </div>
           <Button 
             className="w-full bg-white/20 hover:bg-white/30"
-            onClick={() => navigate('/shop')}
+            onClick={() => navigate('/settings')}
           >
             Upgrade to Premium
           </Button>
