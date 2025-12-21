@@ -48,11 +48,12 @@ const Review: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { progress, loading: progressLoading } = useUserProgress();
 
+  // Only redirect to auth AFTER loading is complete
   React.useEffect(() => {
-    if (!authLoading && !user) {
+    if (!authLoading && !progressLoading && !user) {
       navigate('/auth');
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, progressLoading, navigate]);
 
   if (authLoading || progressLoading) {
     return (
@@ -135,8 +136,11 @@ const Review: React.FC = () => {
               <p className="text-sm text-muted-foreground">Answer as many as you can in 60 seconds</p>
             </div>
           </div>
-          <Button className="w-full gradient-xp text-primary-foreground">
-            Start Timed Challenge
+          <Button 
+            onClick={() => navigate('/timed-challenge')}
+            className="w-full gradient-xp text-primary-foreground font-bold"
+          >
+            <Zap className="w-5 h-5 mr-2" /> Start Timed Challenge
           </Button>
         </div>
       </main>

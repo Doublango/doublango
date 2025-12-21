@@ -20,6 +20,19 @@ interface ExerciseOption {
   correct?: boolean;
 }
 
+// Helper to normalize options to string array
+const normalizeOptions = (options: unknown): string[] => {
+  if (!options) return [];
+  if (Array.isArray(options)) {
+    return options.map((opt) => {
+      if (typeof opt === 'string') return opt;
+      if (typeof opt === 'object' && opt !== null && 'text' in opt) return (opt as ExerciseOption).text;
+      return String(opt);
+    });
+  }
+  return [];
+};
+
 const LessonPage: React.FC = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
@@ -73,7 +86,18 @@ const LessonPage: React.FC = () => {
     // Initialize word bank when exercise changes
     const exercise = exercises[currentIndex];
     if (exercise?.exercise_type === 'word_bank' && exercise.options) {
-      const words = (exercise.options as unknown as ExerciseOption[]).map(o => o.text);
+      // Handle both {words: [...]} and direct array formats
+      const opts = exercise.options as unknown as { words?: string[] } | ExerciseOption[];
+      let words: string[] = [];
+      if (opts && 'words' in opts && Array.isArray(opts.words)) {
+        words = opts.words;
+      } else if (Array.isArray(opts)) {
+        words = normalizeOptions(opts);
+      }
+      // Split the sentence into individual words for word bank
+      if (words.length === 1 && words[0].includes(' ')) {
+        words = words[0].split(' ');
+      }
       setAvailableWords(shuffleArray([...words]));
       setWordBankAnswer([]);
     }
@@ -396,21 +420,21 @@ const LessonPage: React.FC = () => {
                 currentExercise.exercise_type === 'select_sentence') && 
                 currentExercise.options && (
                 <div className="space-y-3">
-                  {(currentExercise.options as unknown as ExerciseOption[]).map((option, i) => (
+                  {normalizeOptions(currentExercise.options).map((optionText, i) => (
                     <button
                       key={i}
-                      onClick={() => !isChecked && setSelectedAnswer(option.text)}
+                      onClick={() => !isChecked && setSelectedAnswer(optionText)}
                       disabled={isChecked}
                       className={cn(
                         'w-full p-4 rounded-2xl border-2 text-left transition-all',
-                        selectedAnswer === option.text && !isChecked && 'border-primary bg-primary/10',
-                        isChecked && option.text.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
-                        isChecked && selectedAnswer === option.text && !isCorrect && 'border-destructive bg-destructive/10',
+                        selectedAnswer === optionText && !isChecked && 'border-primary bg-primary/10',
+                        isChecked && optionText.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
+                        isChecked && selectedAnswer === optionText && !isCorrect && 'border-destructive bg-destructive/10',
                         !selectedAnswer && !isChecked && 'border-border hover:border-primary/50',
-                        isChecked && selectedAnswer !== option.text && option.text.toLowerCase() !== currentExercise.correct_answer.toLowerCase() && 'opacity-50'
+                        isChecked && selectedAnswer !== optionText && optionText.toLowerCase() !== currentExercise.correct_answer.toLowerCase() && 'opacity-50'
                       )}
                     >
-                      {option.text}
+                      {optionText}
                     </button>
                   ))}
                 </div>
@@ -490,44 +514,50 @@ const LessonPage: React.FC = () => {
               )}
 
               {/* Match Pairs */}
-              {currentExercise.exercise_type === 'match_pairs' && currentExercise.options && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    {(currentExercise.options as Array<{left: string; right: string}>).map((pair, i) => (
-                      <button
-                        key={`left-${i}`}
-                        onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left, true)}
-                        disabled={matchedPairs.has(pair.left)}
-                        className={cn(
-                          'w-full p-4 rounded-xl border-2 transition-all',
-                          matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
-                          selectedMatch === pair.left && 'border-primary bg-primary/10',
-                          !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
-                        )}
-                      >
-                        {pair.left}
-                      </button>
-                    ))}
+              {currentExercise.exercise_type === 'match_pairs' && currentExercise.options && (() => {
+                // Handle both direct array and {pairs: [...]} formats
+                const opts = currentExercise.options as unknown as { pairs?: Array<{left: string; right: string}> } | Array<{left: string; right: string}>;
+                const pairs: Array<{left: string; right: string}> = 'pairs' in opts && Array.isArray(opts.pairs) ? opts.pairs : Array.isArray(opts) ? opts : [];
+                if (pairs.length === 0) return null;
+                return (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      {pairs.map((pair, i) => (
+                        <button
+                          key={`left-${i}`}
+                          onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left, true)}
+                          disabled={matchedPairs.has(pair.left)}
+                          className={cn(
+                            'w-full p-4 rounded-xl border-2 transition-all',
+                            matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
+                            selectedMatch === pair.left && 'border-primary bg-primary/10',
+                            !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
+                          )}
+                        >
+                          {pair.left}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="space-y-3">
+                      {shuffleArray(pairs).map((pair, i) => (
+                        <button
+                          key={`right-${i}`}
+                          onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right, false)}
+                          disabled={matchedPairs.has(pair.right)}
+                          className={cn(
+                            'w-full p-4 rounded-xl border-2 transition-all',
+                            matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
+                            selectedMatch === pair.right && 'border-primary bg-primary/10',
+                            !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
+                          )}
+                        >
+                          {pair.right}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="space-y-3">
-                    {shuffleArray((currentExercise.options as Array<{left: string; right: string}>)).map((pair, i) => (
-                      <button
-                        key={`right-${i}`}
-                        onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right, false)}
-                        disabled={matchedPairs.has(pair.right)}
-                        className={cn(
-                          'w-full p-4 rounded-xl border-2 transition-all',
-                          matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
-                          selectedMatch === pair.right && 'border-primary bg-primary/10',
-                          !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
-                        )}
-                      >
-                        {pair.right}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
+                );
+              })()}
             </div>
           </>
         )}
