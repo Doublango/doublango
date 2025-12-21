@@ -440,31 +440,76 @@ const LessonPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Translation / Fill Blank / Type What You Hear */}
+              {/* Translation / Fill Blank / Type What You Hear - with word bank option */}
               {(currentExercise.exercise_type === 'translation' || 
                 currentExercise.exercise_type === 'fill_blank' ||
-                currentExercise.exercise_type === 'type_what_you_hear') && (
-                <div>
-                  <input
-                    type="text"
-                    value={typedAnswer}
-                    onChange={(e) => setTypedAnswer(e.target.value)}
-                    disabled={isChecked}
-                    placeholder="Type your answer..."
-                    className={cn(
-                      'w-full p-4 rounded-2xl border-2 bg-card text-lg',
-                      isChecked && isCorrect && 'border-success bg-success/10',
-                      isChecked && !isCorrect && 'border-destructive bg-destructive/10',
-                      !isChecked && 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
+                currentExercise.exercise_type === 'type_what_you_hear') && (() => {
+                // Check if options include word bank hints
+                const wordHints = currentExercise.options 
+                  ? normalizeOptions(currentExercise.options).filter(o => o.trim())
+                  : [];
+                const hasWordBank = wordHints.length > 0;
+                
+                return (
+                  <div className="space-y-4">
+                    {/* Answer input */}
+                    <input
+                      type="text"
+                      value={typedAnswer}
+                      onChange={(e) => setTypedAnswer(e.target.value)}
+                      disabled={isChecked}
+                      placeholder="Type your answer..."
+                      className={cn(
+                        'w-full p-4 rounded-2xl border-2 bg-card text-lg',
+                        isChecked && isCorrect && 'border-success bg-success/10',
+                        isChecked && !isCorrect && 'border-destructive bg-destructive/10',
+                        !isChecked && 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
+                      )}
+                    />
+                    
+                    {/* Word bank hints for easier translation */}
+                    {hasWordBank && !isChecked && (
+                      <div className="space-y-2">
+                        <p className="text-xs text-muted-foreground text-center">Tap words to help build your answer:</p>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {wordHints.map((word, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => setTypedAnswer(prev => prev ? `${prev} ${word}` : word)}
+                              className="px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              {word}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     )}
-                  />
-                  {isChecked && !isCorrect && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Correct answer: <span className="text-success font-medium">{currentExercise.correct_answer}</span>
-                    </p>
-                  )}
-                </div>
-              )}
+                    
+                    {/* Accent keyboard for special characters */}
+                    {!isChecked && currentExercise.exercise_type === 'translation' && (
+                      <div className="flex flex-wrap gap-1 justify-center">
+                        {['á', 'é', 'í', 'ó', 'ú', 'ñ', 'ü', '¿', '¡'].map((char) => (
+                          <button
+                            key={char}
+                            type="button"
+                            onClick={() => setTypedAnswer(prev => prev + char)}
+                            className="w-9 h-9 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            {char}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {isChecked && !isCorrect && (
+                      <p className="text-sm text-muted-foreground">
+                        Correct answer: <span className="text-success font-medium">{currentExercise.correct_answer}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Word Bank */}
               {currentExercise.exercise_type === 'word_bank' && (
