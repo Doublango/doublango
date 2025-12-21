@@ -73,7 +73,7 @@ const Home: React.FC = () => {
     }
   }, [activeCourse, progressLoading, user]);
 
-  const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
+  
 
   const startLesson = () => {
     if (nextLessonId) {
