@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import SpeechExercise from '@/components/SpeechExercise';
+import AudioExercise from '@/components/AudioExercise';
 import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
@@ -34,12 +36,51 @@ const normalizeOptions = (options: unknown): string[] => {
   return [];
 };
 
+// Helper to generate word bank words from correct answer
+const generateWordBankWords = (correctAnswer: string, existingOptions: unknown): string[] => {
+  // Split correct answer into words
+  const correctWords = correctAnswer.split(/\s+/).filter(w => w.trim());
+  
+  // Check if we have existing words in options
+  const opts = existingOptions as unknown as { words?: string[] } | string[];
+  let words: string[] = [];
+  
+  if (opts && typeof opts === 'object' && 'words' in opts && Array.isArray(opts.words)) {
+    // If words is a single sentence, split it
+    if (opts.words.length === 1 && opts.words[0].includes(' ')) {
+      words = opts.words[0].split(/\s+/).filter(w => w.trim());
+    } else {
+      words = opts.words.filter(w => w.trim());
+    }
+  } else if (Array.isArray(opts)) {
+    words = normalizeOptions(opts).filter(w => w.trim());
+  }
+  
+  // If we have words, use them; otherwise use correct answer words
+  if (words.length === 0) {
+    words = [...correctWords];
+  }
+  
+  // Add distractor words if we have too few
+  const distractors = ['the', 'a', 'is', 'are', 'to', 'in', 'and', 'for', 'of', 'with', 'it', 'on', 'at', 'by', 'from'];
+  while (words.length < Math.max(correctWords.length + 2, 5)) {
+    const distractor = distractors[Math.floor(Math.random() * distractors.length)];
+    if (!words.includes(distractor)) {
+      words.push(distractor);
+    }
+    if (words.length >= correctWords.length + 4) break;
+  }
+  
+  return words;
+};
+
 const LessonPage: React.FC = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { progress, updateProgress, refetch, activeCourse } = useUserProgress();
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -87,19 +128,9 @@ const LessonPage: React.FC = () => {
   useEffect(() => {
     // Initialize word bank when exercise changes
     const exercise = exercises[currentIndex];
-    if (exercise?.exercise_type === 'word_bank' && exercise.options) {
-      // Handle both {words: [...]} and direct array formats
-      const opts = exercise.options as unknown as { words?: string[] } | ExerciseOption[];
-      let words: string[] = [];
-      if (opts && 'words' in opts && Array.isArray(opts.words)) {
-        words = opts.words;
-      } else if (Array.isArray(opts)) {
-        words = normalizeOptions(opts);
-      }
-      // Split the sentence into individual words for word bank
-      if (words.length === 1 && words[0].includes(' ')) {
-        words = words[0].split(' ');
-      }
+    if (exercise?.exercise_type === 'word_bank') {
+      // Use the new helper to generate proper word bank words
+      const words = generateWordBankWords(exercise.correct_answer, exercise.options);
       setAvailableWords(shuffleArray([...words]));
       setWordBankAnswer([]);
     }
