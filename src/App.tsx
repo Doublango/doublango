@@ -12,6 +12,7 @@ import Learn from "./pages/Learn";
 import Lesson from "./pages/Lesson";
 import Review from "./pages/Review";
 import TimedChallenge from "./pages/TimedChallenge";
+import PlacementTest from "./pages/PlacementTest";
 import Leaderboard from "./pages/Leaderboard";
 import Shop from "./pages/Shop";
 import Profile from "./pages/Profile";
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/review" element={<Review />} />
             <Route path="/review/:mode" element={<Review />} />
             <Route path="/timed-challenge" element={<TimedChallenge />} />
+            <Route path="/placement-test" element={<PlacementTest />} />
             <Route path="/leaderboard" element={<Leaderboard />} />
             <Route path="/shop" element={<Shop />} />
             <Route path="/profile" element={<Profile />} />
