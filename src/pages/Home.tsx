@@ -8,7 +8,7 @@ import BottomNavigation from '@/components/BottomNavigation';
 import StatCard from '@/components/StatCard';
 import ProgressBar from '@/components/ProgressBar';
 import MonkeyMascot from '@/components/MonkeyMascot';
-import { LANGUAGES } from '@/lib/languages';
+import LanguageSelector from '@/components/LanguageSelector';
 import { Play, Target, Flame } from 'lucide-react';
 
 const Home: React.FC = () => {
@@ -106,10 +106,7 @@ const Home: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">{language?.flag}</span>
-            <span className="font-bold">{language?.name}</span>
-          </div>
+          <LanguageSelector />
           <div className="flex gap-2">
             <StatCard type="streak" value={progress?.current_streak || 0} />
             <StatCard type="lives" value={progress?.lives || 5} maxValue={5} />
