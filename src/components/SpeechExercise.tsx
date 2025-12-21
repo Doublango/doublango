@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Mic, MicOff, Volume2, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +18,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
   onResult,
   disabled = false,
 }) => {
+  const { t } = useTranslation();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
@@ -125,18 +127,18 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
     return matrix[b.length][a.length];
   };
 
-  const getErrorMessage = (error: string): string => {
-    switch (error) {
+  const getErrorMessage = (errorCode: string): string => {
+    switch (errorCode) {
       case 'no-speech':
-        return "Didn't hear anything. Try again!";
+        return t('speech.noSpeech');
       case 'audio-capture':
-        return 'No microphone found. Please check your device.';
+        return t('speech.noMic');
       case 'not-allowed':
-        return 'Microphone access denied. Please enable it in settings.';
+        return t('speech.micDenied');
       case 'network':
-        return 'Network error. Please check your connection.';
+        return t('speech.networkError');
       default:
-        return 'Something went wrong. Please try again.';
+        return t('speech.genericError');
     }
   };
 
@@ -177,10 +179,10 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
   }, []);
 
   const getAccuracyLabel = (acc: number): { label: string; color: string } => {
-    if (acc >= 90) return { label: 'Excellent! 🎉', color: 'text-success' };
-    if (acc >= 70) return { label: 'Good job! 👍', color: 'text-success' };
-    if (acc >= 50) return { label: 'Keep practicing!', color: 'text-banana' };
-    return { label: 'Try again', color: 'text-destructive' };
+    if (acc >= 90) return { label: t('speech.excellent'), color: 'text-success' };
+    if (acc >= 70) return { label: t('speech.goodJob'), color: 'text-success' };
+    if (acc >= 50) return { label: t('speech.keepPracticing'), color: 'text-banana' };
+    return { label: t('speech.tryAgain'), color: 'text-destructive' };
   };
 
   if (!isSupported) {
@@ -188,10 +190,10 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
       <div className="text-center p-6 bg-muted/50 rounded-2xl">
         <MicOff className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
         <p className="text-muted-foreground mb-4">
-          Speech recognition is not supported in your browser.
+          {t('speech.notSupported')}
         </p>
         <Button variant="outline" onClick={() => onResult(true, 'skipped', 100)}>
-          Skip This Exercise
+          {t('speech.skipExercise')}
         </Button>
       </div>
     );
@@ -201,7 +203,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
     <div className="space-y-6">
       {/* Target Phrase */}
       <div className="bg-card rounded-2xl p-6 text-center">
-        <p className="text-sm text-muted-foreground mb-2">Say this phrase:</p>
+        <p className="text-sm text-muted-foreground mb-2">{t('speech.sayPhrase')}</p>
         <p className="text-2xl font-bold mb-4">{targetPhrase}</p>
         <Button
           variant="outline"
@@ -210,7 +212,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
           className="gap-2"
         >
           <Volume2 className="w-4 h-4" />
-          Listen
+          {t('speech.listen')}
         </Button>
       </div>
 
@@ -234,7 +236,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
           )}
         </button>
         <p className="text-sm text-muted-foreground">
-          {isListening ? 'Listening... Tap to stop' : 'Tap to speak'}
+          {isListening ? t('speech.listening') : t('speech.tapToSpeak')}
         </p>
       </div>
 
@@ -249,7 +251,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
             className="mt-2 gap-2"
           >
             <RotateCcw className="w-4 h-4" />
-            Try Again
+            {t('common.retry')}
           </Button>
         </div>
       )}
@@ -264,7 +266,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
               ? 'bg-destructive/10'
               : 'bg-muted'
         )}>
-          <p className="text-sm text-muted-foreground mb-1">You said:</p>
+          <p className="text-sm text-muted-foreground mb-1">{t('speech.youSaid')}</p>
           <p className="text-lg font-medium mb-2">"{transcript}"</p>
           
           {accuracy !== null && (
@@ -283,7 +285,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
                 'font-bold',
                 getAccuracyLabel(accuracy).color
               )}>
-                {accuracy}% accuracy - {getAccuracyLabel(accuracy).label}
+                {accuracy}% {t('speech.accuracyLabel')} - {getAccuracyLabel(accuracy).label}
               </p>
             </div>
           )}
@@ -298,7 +300,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
           onClick={() => onResult(true, 'skipped', 100)}
           className="text-muted-foreground"
         >
-          Can't speak now
+          {t('speech.cantSpeak')}
         </Button>
       </div>
     </div>
