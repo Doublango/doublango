@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
+import SpeechExercise from '@/components/SpeechExercise';
 import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
@@ -37,7 +38,7 @@ const LessonPage: React.FC = () => {
   const { lessonId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { progress, updateProgress, refetch } = useUserProgress();
+  const { progress, updateProgress, refetch, activeCourse } = useUserProgress();
   const { toast } = useToast();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -58,6 +59,7 @@ const LessonPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
   const [monkeyMood, setMonkeyMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
+  const [speechResult, setSpeechResult] = useState<{ correct: boolean; transcript: string; accuracy: number } | null>(null);
 
   useEffect(() => {
     const loadLesson = async () => {
@@ -199,6 +201,7 @@ const LessonPage: React.FC = () => {
     setIsChecked(false);
     setIsCorrect(false);
     setMonkeyMood('happy');
+    setSpeechResult(null);
   };
 
   const completeLesson = async () => {
@@ -278,8 +281,28 @@ const LessonPage: React.FC = () => {
 
   const speakText = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'es'; // TODO: Make dynamic based on language
+    // Use language code from active course
+    const langCode = activeCourse?.language_code || 'es';
+    utterance.lang = langCode;
+    utterance.rate = 0.8;
     speechSynthesis.speak(utterance);
+  };
+
+  const handleSpeechResult = (correct: boolean, transcript: string, accuracy: number) => {
+    setSpeechResult({ correct, transcript, accuracy });
+    setIsChecked(true);
+    setIsCorrect(correct);
+    
+    if (correct) {
+      setXpEarned(prev => prev + 10);
+      setMonkeyMood('excited');
+      playSound('correct');
+    } else {
+      setLives(prev => prev - 1);
+      setMistakes(prev => prev + 1);
+      setMonkeyMood('sad');
+      playSound('incorrect');
+    }
   };
 
   const handleExit = () => {
@@ -603,6 +626,16 @@ const LessonPage: React.FC = () => {
                   </div>
                 );
               })()}
+
+              {/* Speak Answer */}
+              {currentExercise.exercise_type === 'speak_answer' && (
+                <SpeechExercise
+                  targetPhrase={currentExercise.correct_answer}
+                  languageCode={activeCourse?.language_code || 'es'}
+                  onResult={handleSpeechResult}
+                  disabled={isChecked}
+                />
+              )}
             </div>
           </>
         )}
@@ -611,7 +644,7 @@ const LessonPage: React.FC = () => {
       {/* Footer */}
       <footer className="sticky bottom-0 bg-card border-t border-border p-4">
         <div className="max-w-lg mx-auto">
-          {!isChecked ? (
+          {!isChecked && currentExercise?.exercise_type !== 'speak_answer' ? (
             <Button
               onClick={checkAnswer}
               disabled={
@@ -626,7 +659,7 @@ const LessonPage: React.FC = () => {
             >
               Check
             </Button>
-          ) : (
+          ) : isChecked ? (
             <div className="space-y-3">
               <div className={cn(
                 'p-4 rounded-2xl text-center',
@@ -646,7 +679,7 @@ const LessonPage: React.FC = () => {
                 Continue <ArrowRight className="ml-2 w-5 h-5" />
               </Button>
             </div>
-          )}
+          ) : null}
         </div>
       </footer>
     </div>

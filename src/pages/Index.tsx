@@ -70,7 +70,7 @@ const Index: React.FC = () => {
             Join millions learning 42+ languages
           </p>
           <p className="text-xs text-banana font-bold">
-            🎉 Premium from just £3.99/month — half the price of competitors!
+            🎉 Premium from just £4.99/month — half the price of competitors!
           </p>
         </div>
       </div>
