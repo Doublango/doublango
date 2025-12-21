@@ -24,12 +24,12 @@ const Home: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Redirect to onboarding if no active course
+  // Redirect to onboarding if not completed
   useEffect(() => {
-    if (!progressLoading && user && !activeCourse) {
+    if (!progressLoading && user && profile && !profile.onboarding_completed) {
       navigate('/onboarding');
     }
-  }, [activeCourse, progressLoading, user, navigate]);
+  }, [profile, progressLoading, user, navigate]);
 
   // Find next lesson
   useEffect(() => {

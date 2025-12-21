@@ -27,8 +27,12 @@ const Onboarding: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // Update profile settings
-      await supabase.from('profiles').update({ daily_goal_xp: dailyGoal, motivation }).eq('id', user.id);
+      // Update profile settings and mark onboarding as completed
+      await supabase.from('profiles').update({ 
+        daily_goal_xp: dailyGoal, 
+        motivation,
+        onboarding_completed: true 
+      }).eq('id', user.id);
       
       // Deactivate all existing courses first
       await supabase.from('user_courses').update({ is_active: false }).eq('user_id', user.id);
