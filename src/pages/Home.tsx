@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import BottomNavigation from '@/components/BottomNavigation';
 import StatCard from '@/components/StatCard';
@@ -13,6 +14,7 @@ import { Play, Target, Flame } from 'lucide-react';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { profile, progress, activeCourse, loading: progressLoading } = useUserProgress();
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
@@ -73,8 +75,6 @@ const Home: React.FC = () => {
     }
   }, [activeCourse, progressLoading, user]);
 
-  
-
   const startLesson = () => {
     if (nextLessonId) {
       navigate(`/lesson/${nextLessonId}`);
@@ -123,7 +123,7 @@ const Home: React.FC = () => {
             </div>
             <div className="flex-1">
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-muted-foreground">Daily Goal</span>
+                <span className="text-muted-foreground">{t('home.dailyGoal')}</span>
                 <span className="font-bold text-xp">{todayXp}/{dailyGoal} XP</span>
               </div>
               <ProgressBar value={todayXp} max={dailyGoal} variant="xp" />
@@ -132,7 +132,7 @@ const Home: React.FC = () => {
           {progress?.current_streak ? (
             <div className="flex items-center gap-2 text-streak">
               <Flame className="w-5 h-5" />
-              <span className="font-bold">{progress.current_streak} day streak!</span>
+              <span className="font-bold">{progress.current_streak} {t('home.currentStreak')}!</span>
               <span className="text-2xl">🍌</span>
             </div>
           ) : null}
@@ -146,12 +146,12 @@ const Home: React.FC = () => {
             className="mx-auto mb-4" 
           />
           <h2 className="text-xl font-bold mb-2">
-            {goalReached ? "Great job today! 🍌🎉" : "Ready to learn?"}
+            {goalReached ? t('monkey.goodJob') + " 🍌🎉" : t('monkey.welcome')}
           </h2>
           <p className="text-muted-foreground mb-6">
             {goalReached 
-              ? "You've reached your daily goal! Keep going for bonus bananas!" 
-              : "Continue where you left off"}
+              ? t('monkey.keepGoing')
+              : t('home.continueStreak')}
           </p>
           <Button 
             onClick={startLesson} 
@@ -159,14 +159,14 @@ const Home: React.FC = () => {
             className="w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground shadow-banana hover:opacity-90 transition-opacity"
           >
             <Play className="w-6 h-6 mr-2" /> 
-            {nextLessonId ? 'Continue Learning' : 'Start Learning'}
+            {nextLessonId ? t('common.continue') : t('home.startLearning')}
           </Button>
         </div>
 
         {/* Daily Quests Card */}
         <div className="bg-card rounded-3xl p-6 shadow-md">
           <h3 className="font-bold mb-4 flex items-center gap-2">
-            <span>Daily Quests</span>
+            <span>{t('profile.achievements')}</span>
             <span className="text-lg">🍌</span>
           </h3>
           <div className="space-y-3">

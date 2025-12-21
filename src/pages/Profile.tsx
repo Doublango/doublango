@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import { Button } from '@/components/ui/button';
@@ -10,20 +11,20 @@ import {
   ChevronRight, Bell, Moon, HelpCircle, Shield, Crown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-
-const menuItems = [
-  { id: 'notifications', label: 'Notifications', icon: Bell },
-  { id: 'appearance', label: 'Appearance', icon: Moon },
-  { id: 'privacy', label: 'Privacy', icon: Shield },
-  { id: 'help', label: 'Help & Support', icon: HelpCircle },
-];
 
 const Profile: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, loading: authLoading, signOut } = useAuth();
   const { profile, progress, activeCourse, loading: progressLoading } = useUserProgress();
   const [signingOut, setSigningOut] = useState(false);
+
+  const menuItems = [
+    { id: 'notifications', label: t('settings.practiceReminders'), icon: Bell },
+    { id: 'appearance', label: t('settings.preferences'), icon: Moon },
+    { id: 'privacy', label: t('settings.privacyPolicy'), icon: Shield },
+    { id: 'help', label: t('settings.helpCenter'), icon: HelpCircle },
+  ];
 
   React.useEffect(() => {
     if (!authLoading && !user) {
@@ -50,7 +51,7 @@ const Profile: React.FC = () => {
       {/* Header */}
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <h1 className="font-bold text-lg">Profile</h1>
+          <h1 className="font-bold text-lg">{t('profile.title')}</h1>
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
             <Settings className="w-5 h-5" />
           </Button>
@@ -75,7 +76,7 @@ const Profile: React.FC = () => {
                 <p className="text-sm text-primary">@{profile.username}</p>
               )}
             </div>
-            <Button variant="outline" size="sm">Edit</Button>
+            <Button variant="outline" size="sm">{t('profile.editProfile')}</Button>
           </div>
         </div>
 
@@ -84,21 +85,21 @@ const Profile: React.FC = () => {
           <div className="flex items-center gap-3 mb-3">
             <Crown className="w-6 h-6" />
             <div>
-              <p className="font-bold">Free Plan</p>
-              <p className="text-sm opacity-80">Go unlimited from £4.99/month</p>
+              <p className="font-bold">{t('subscription.free')}</p>
+              <p className="text-sm opacity-80">{t('subscription.upgradeToPremium')}</p>
             </div>
           </div>
           <Button 
             className="w-full bg-white/20 hover:bg-white/30"
             onClick={() => navigate('/settings')}
           >
-            Upgrade to Premium
+            {t('subscription.upgradeToPremium')}
           </Button>
         </div>
 
         {/* Stats */}
         <div className="bg-card rounded-2xl p-6 shadow-md">
-          <h3 className="font-bold mb-4">Statistics</h3>
+          <h3 className="font-bold mb-4">{t('profile.statistics')}</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-xp/10 flex items-center justify-center">
@@ -106,7 +107,7 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="font-bold text-lg">{progress?.total_xp || 0}</p>
-                <p className="text-xs text-muted-foreground">Total XP</p>
+                <p className="text-xs text-muted-foreground">{t('profile.totalXP')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -115,7 +116,7 @@ const Profile: React.FC = () => {
               </div>
               <div>
                 <p className="font-bold text-lg">{progress?.current_streak || 0}</p>
-                <p className="text-xs text-muted-foreground">Day Streak</p>
+                <p className="text-xs text-muted-foreground">{t('profile.daysStreak')}</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
@@ -164,7 +165,7 @@ const Profile: React.FC = () => {
           disabled={signingOut}
         >
           <LogOut className="w-4 h-4 mr-2" />
-          {signingOut ? 'Signing out...' : 'Sign Out'}
+          {signingOut ? t('settings.signingOut') : t('settings.signOut')}
         </Button>
       </main>
 

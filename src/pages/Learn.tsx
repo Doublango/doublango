@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import { LANGUAGES } from '@/lib/languages';
@@ -20,6 +21,7 @@ interface UnitWithLessons extends Unit {
 
 const Learn: React.FC = () => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { activeCourse, loading: progressLoading } = useUserProgress();
   const [units, setUnits] = useState<UnitWithLessons[]>([]);
@@ -127,7 +129,7 @@ const Learn: React.FC = () => {
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-center gap-2 max-w-lg mx-auto">
           <span className="text-2xl">{language?.flag}</span>
-          <h1 className="font-bold text-lg">{language?.name} Course</h1>
+          <h1 className="font-bold text-lg">{language?.name} {t('nav.learn')}</h1>
         </div>
       </header>
 
@@ -221,7 +223,7 @@ const Learn: React.FC = () => {
           {units.length === 0 && (
             <div className="text-center py-12">
               <MonkeyMascot mood="sad" size="lg" className="mx-auto mb-4" />
-              <h2 className="text-xl font-bold mb-2">No lessons available</h2>
+              <h2 className="text-xl font-bold mb-2">{t('common.loading')}</h2>
               <p className="text-muted-foreground">Content for this language is coming soon!</p>
             </div>
           )}

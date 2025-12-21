@@ -2,23 +2,25 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, BookOpen, RotateCcw, Globe, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface NavItem {
   path: string;
   icon: React.ElementType;
-  label: string;
+  labelKey: string;
 }
 
 const navItems: NavItem[] = [
-  { path: '/home', icon: Home, label: 'Home' },
-  { path: '/learn', icon: BookOpen, label: 'Learn' },
-  { path: '/review', icon: RotateCcw, label: 'Review' },
-  { path: '/languages', icon: Globe, label: 'Language' },
-  { path: '/profile', icon: User, label: 'Profile' },
+  { path: '/home', icon: Home, labelKey: 'nav.home' },
+  { path: '/learn', icon: BookOpen, labelKey: 'nav.learn' },
+  { path: '/review', icon: RotateCcw, labelKey: 'nav.review' },
+  { path: '/languages', icon: Globe, labelKey: 'nav.languages' },
+  { path: '/profile', icon: User, labelKey: 'nav.profile' },
 ];
 
 export const BottomNavigation: React.FC = () => {
   const location = useLocation();
+  const { t } = useTranslation();
 
   // Don't show navigation on auth, onboarding, lesson, or landing pages
   if (
@@ -48,7 +50,7 @@ export const BottomNavigation: React.FC = () => {
               )}
             >
               <Icon className={cn('w-5 h-5', isActive && 'text-primary')} />
-              <span className="text-xs font-medium">{item.label}</span>
+              <span className="text-xs font-medium">{t(item.labelKey)}</span>
             </Link>
           );
         })}
