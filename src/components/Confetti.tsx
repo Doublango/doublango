@@ -6,11 +6,13 @@ interface ConfettiPiece {
   color: string;
   delay: number;
   duration: number;
+  emoji?: string;
 }
 
 interface ConfettiProps {
   trigger: boolean;
   onComplete?: () => void;
+  bananaTheme?: boolean;
 }
 
 const COLORS = [
@@ -23,17 +25,27 @@ const COLORS = [
   '#06b6d4', // cyan
 ];
 
-export const Confetti: React.FC<ConfettiProps> = ({ trigger, onComplete }) => {
+const BANANA_COLORS = [
+  '#FFE135', // bright yellow
+  '#FFC107', // golden
+  '#FFEB3B', // light yellow
+  '#FF9800', // orange
+  '#8BC34A', // green (unripe banana)
+];
+
+export const Confetti: React.FC<ConfettiProps> = ({ trigger, onComplete, bananaTheme = false }) => {
   const [pieces, setPieces] = useState<ConfettiPiece[]>([]);
 
   useEffect(() => {
     if (trigger) {
+      const colors = bananaTheme ? BANANA_COLORS : COLORS;
       const newPieces: ConfettiPiece[] = Array.from({ length: 50 }, (_, i) => ({
         id: i,
         x: Math.random() * 100,
-        color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        color: colors[Math.floor(Math.random() * colors.length)],
         delay: Math.random() * 0.5,
         duration: 2 + Math.random() * 2,
+        emoji: bananaTheme && Math.random() > 0.7 ? '🍌' : undefined,
       }));
       setPieces(newPieces);
 
@@ -44,7 +56,7 @@ export const Confetti: React.FC<ConfettiProps> = ({ trigger, onComplete }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [trigger, onComplete]);
+  }, [trigger, onComplete, bananaTheme]);
 
   if (pieces.length === 0) return null;
 
@@ -53,15 +65,20 @@ export const Confetti: React.FC<ConfettiProps> = ({ trigger, onComplete }) => {
       {pieces.map((piece) => (
         <div
           key={piece.id}
-          className="absolute w-3 h-3"
+          className="absolute"
           style={{
             left: `${piece.x}%`,
             top: '-20px',
-            backgroundColor: piece.color,
-            borderRadius: Math.random() > 0.5 ? '50%' : '0',
+            width: piece.emoji ? '24px' : '12px',
+            height: piece.emoji ? '24px' : '12px',
+            backgroundColor: piece.emoji ? 'transparent' : piece.color,
+            borderRadius: !piece.emoji && Math.random() > 0.5 ? '50%' : '0',
             animation: `confetti-fall ${piece.duration}s ease-in-out ${piece.delay}s forwards`,
+            fontSize: piece.emoji ? '20px' : undefined,
           }}
-        />
+        >
+          {piece.emoji}
+        </div>
       ))}
     </div>
   );

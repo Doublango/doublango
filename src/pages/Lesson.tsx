@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import ParrotMascot from '@/components/ParrotMascot';
+import MonkeyMascot from '@/components/MonkeyMascot';
 import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
@@ -57,7 +57,7 @@ const LessonPage: React.FC = () => {
   const [showConfetti, setShowConfetti] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isComplete, setIsComplete] = useState(false);
-  const [parrotMood, setParrotMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
+  const [monkeyMood, setMonkeyMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
 
   useEffect(() => {
     const loadLesson = async () => {
@@ -148,12 +148,12 @@ const LessonPage: React.FC = () => {
 
     if (correct) {
       setXpEarned(prev => prev + 10);
-      setParrotMood('excited');
+      setMonkeyMood('excited');
       playSound('correct');
     } else {
       setLives(prev => prev - 1);
       setMistakes(prev => prev + 1);
-      setParrotMood('sad');
+      setMonkeyMood('sad');
       playSound('incorrect');
     }
   };
@@ -198,7 +198,7 @@ const LessonPage: React.FC = () => {
     setWordBankAnswer([]);
     setIsChecked(false);
     setIsCorrect(false);
-    setParrotMood('happy');
+    setMonkeyMood('happy');
   };
 
   const completeLesson = async () => {
@@ -206,7 +206,7 @@ const LessonPage: React.FC = () => {
 
     setIsComplete(true);
     setShowConfetti(true);
-    setParrotMood('celebrating');
+    setMonkeyMood('celebrating');
 
     const finalXp = xpEarned + (lesson.xp_reward || 0);
     const isPerfect = mistakes === 0;
@@ -264,7 +264,7 @@ const LessonPage: React.FC = () => {
           setIsChecked(true);
           setIsCorrect(true);
           setXpEarned(prev => prev + 10);
-          setParrotMood('excited');
+          setMonkeyMood('excited');
           playSound('correct');
         }
       } else {
@@ -289,16 +289,16 @@ const LessonPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <ParrotMascot mood="thinking" size="lg" animate />
+        <MonkeyMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
 
   if (isComplete) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        {showConfetti && <Confetti trigger={showConfetti} />}
-        <ParrotMascot mood="celebrating" size="xl" animate className="mb-6" />
+      <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col items-center justify-center p-6">
+        {showConfetti && <Confetti trigger={showConfetti} bananaTheme />}
+        <MonkeyMascot mood="celebrating" size="xl" animate className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">Lesson Complete!</h1>
         <p className="text-muted-foreground mb-8">Great job finishing the lesson</p>
         
@@ -334,8 +334,8 @@ const LessonPage: React.FC = () => {
 
   if (lives <= 0) {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
-        <ParrotMascot mood="sad" size="xl" animate className="mb-6" />
+      <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col items-center justify-center p-6">
+        <MonkeyMascot mood="sad" size="xl" animate className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">Out of Hearts!</h1>
         <p className="text-muted-foreground mb-8">Practice more or wait for hearts to regenerate</p>
         
@@ -392,7 +392,7 @@ const LessonPage: React.FC = () => {
             {/* Question */}
             <div className="mb-6">
               <div className="flex items-start gap-3">
-                <ParrotMascot mood={parrotMood} size="sm" />
+                <MonkeyMascot mood={monkeyMood} size="sm" />
                 <div className="bg-card rounded-2xl p-4 shadow-sm flex-1">
                   <p className="text-lg font-semibold">{currentExercise.question}</p>
                   {currentExercise.hint && !isChecked && (
