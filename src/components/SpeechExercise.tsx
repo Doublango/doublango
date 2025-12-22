@@ -165,11 +165,40 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
     setIsListening(false);
   }, []);
 
-  const speakPhrase = useCallback(() => {
+  const speakPhrase = useCallback(async () => {
+    window.speechSynthesis.cancel();
+    
+    // Wait for voices to be available
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      await new Promise<void>((resolve) => {
+        const checkVoices = () => {
+          voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            resolve();
+          } else {
+            setTimeout(checkVoices, 100);
+          }
+        };
+        setTimeout(checkVoices, 100);
+      });
+    }
+    
     const utterance = new SpeechSynthesisUtterance(targetPhrase);
-    utterance.lang = getTTSLanguageCode(languageCode);
-    utterance.rate = 0.8;
-    speechSynthesis.speak(utterance);
+    const langCode = getTTSLanguageCode(languageCode);
+    utterance.lang = langCode;
+    utterance.rate = 0.75;
+    utterance.volume = 1.0;
+    
+    // Find matching voice
+    const primary = langCode.split('-')[0].toLowerCase();
+    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(primary)) ||
+                          voices.find(v => v.lang.toLowerCase().includes(primary));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+    
+    window.speechSynthesis.speak(utterance);
   }, [targetPhrase, languageCode]);
 
   const retry = useCallback(() => {

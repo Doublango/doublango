@@ -9,19 +9,20 @@ interface AppHeaderProps {
   className?: string;
   leftSlot?: React.ReactNode;
   rightSlot?: React.ReactNode;
+  showLogo?: boolean;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ className, leftSlot, rightSlot }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ className, leftSlot, rightSlot, showLogo = true }) => {
   return (
-    <header className={cn("sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3", className)}>
-      <div className="flex items-center justify-between gap-3 max-w-lg mx-auto">
-        <div className="flex items-center gap-3 min-w-0">
-          <BrandLogo className="shrink-0" />
+    <header className={cn("sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-3 py-2", className)}>
+      <div className="flex items-center justify-between gap-2 max-w-lg mx-auto">
+        <div className="flex items-center gap-2 min-w-0 flex-shrink">
+          {showLogo && <BrandLogo className="shrink-0" compact />}
           {leftSlot}
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           <UILanguageDropdown compact />
-          <div className="flex items-center gap-1 rounded-xl bg-muted/40 border border-border px-1">
+          <div className="flex items-center rounded-lg bg-muted/50 border border-border/50 p-0.5">
             <DarkModeToggle />
             <KidsModeToggle />
           </div>

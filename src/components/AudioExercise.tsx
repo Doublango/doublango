@@ -25,32 +25,63 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   const [playCount, setPlayCount] = useState(0);
   const [audioSupported, setAudioSupported] = useState(true);
 
-  // Check if speech synthesis is supported
+  // Check if speech synthesis is supported and load voices
   useEffect(() => {
     if (!('speechSynthesis' in window)) {
       setAudioSupported(false);
+      return;
     }
+    
+    // Force load voices
+    const loadVoices = () => {
+      window.speechSynthesis.getVoices();
+    };
+    
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
   }, []);
 
-  const speakText = useCallback(() => {
+  const speakText = useCallback(async () => {
     if (isPlaying || !audioSupported) return;
     
     // Cancel any ongoing speech
-    speechSynthesis.cancel();
+    window.speechSynthesis.cancel();
     
     setIsPlaying(true);
+    
+    // Wait for voices to be available
+    let voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      await new Promise<void>((resolve) => {
+        const checkVoices = () => {
+          voices = window.speechSynthesis.getVoices();
+          if (voices.length > 0) {
+            resolve();
+          } else {
+            setTimeout(checkVoices, 100);
+          }
+        };
+        setTimeout(checkVoices, 100);
+      });
+    }
+    
     const utterance = new SpeechSynthesisUtterance(correctAnswer);
     
     // Set language based on the course language
     const langCode = getTTSLanguageCode(languageCode);
     utterance.lang = langCode;
-    utterance.rate = playCount === 0 ? 0.65 : 0.8; // Even slower first time
+    utterance.rate = playCount === 0 ? 0.65 : 0.8;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     
     // Try to find a voice for this language
-    const voices = speechSynthesis.getVoices();
-    const matchingVoice = voices.find(v => v.lang.startsWith(langCode.split('-')[0]));
+    const primary = langCode.split('-')[0].toLowerCase();
+    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(primary)) ||
+                          voices.find(v => v.lang.toLowerCase().includes(primary));
     if (matchingVoice) {
       utterance.voice = matchingVoice;
     }
@@ -67,34 +98,24 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
       setHasPlayed(true);
     };
     
-    speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance);
   }, [correctAnswer, languageCode, isPlaying, playCount, audioSupported]);
 
-  // Auto-play on mount
+  // Auto-play on mount with delay for voices to load
   useEffect(() => {
-    // Load voices first
-    const loadVoices = () => {
-      speechSynthesis.getVoices();
-    };
-    loadVoices();
+    if (!audioSupported) return;
     
-    // Some browsers need this event
-    if (speechSynthesis.onvoiceschanged !== undefined) {
-      speechSynthesis.onvoiceschanged = loadVoices;
-    }
-    
-    // Auto-play after a short delay
     const timer = setTimeout(() => {
-      if (audioSupported && !hasPlayed) {
+      if (!hasPlayed) {
         speakText();
       }
-    }, 500);
+    }, 800);
     
     return () => {
       clearTimeout(timer);
-      speechSynthesis.cancel();
+      window.speechSynthesis.cancel();
     };
-  }, []);
+  }, [audioSupported]);
 
   const handleSubmit = () => {
     onAnswer(typedAnswer);
