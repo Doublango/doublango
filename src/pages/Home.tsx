@@ -13,7 +13,8 @@ import LanguageSelector from '@/components/LanguageSelector';
 import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
-import { Play, Target, Flame, Crown } from 'lucide-react';
+import { LANGUAGES } from '@/lib/languages';
+import { Play, Target, Flame, Crown, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Home: React.FC = () => {
@@ -24,6 +25,9 @@ const Home: React.FC = () => {
   const { settings } = useAppSettings();
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Get current language info
+  const currentLanguage = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
   // Redirect to landing if not logged in
   useEffect(() => {
@@ -153,32 +157,58 @@ const Home: React.FC = () => {
           ) : null}
         </div>
 
-        {/* Main CTA Card */}
-        <div className="bg-card rounded-3xl p-6 shadow-md text-center">
-          <AvatarMascot 
-            mood={goalReached ? 'celebrating' : 'happy'} 
-            size="lg" 
-            className="mx-auto mb-4" 
-          />
-          <h2 className={cn('text-xl font-bold mb-2', isKidsMode && 'text-2xl')}>
-            {goalReached ? t('monkey.goodJob') + " 🍌🎉" : t('monkey.welcome')}
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            {goalReached 
-              ? t('monkey.keepGoing')
-              : t('home.continueStreak')}
-          </p>
-          <Button 
-            onClick={startLesson} 
-            size="lg" 
-            className={cn(
-              'w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground shadow-banana hover:opacity-90 transition-opacity',
-              isKidsMode && 'h-16 text-xl'
+        {/* Main CTA Card with Language Flag Background */}
+        <div className="relative bg-card rounded-3xl p-6 shadow-md text-center overflow-hidden">
+          {/* Flag Background */}
+          {currentLanguage && (
+            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
+              <span className="text-[12rem] select-none">{currentLanguage.flag}</span>
+            </div>
+          )}
+          
+          {/* Content */}
+          <div className="relative z-10">
+            {/* Avatar Display */}
+            <div className="relative mx-auto mb-4 w-fit">
+              <AvatarMascot 
+                mood={goalReached ? 'celebrating' : 'happy'} 
+                size="lg" 
+              />
+              {goalReached && (
+                <div className="absolute -top-1 -right-1">
+                  <Sparkles className="w-6 h-6 text-banana animate-pulse" />
+                </div>
+              )}
+            </div>
+            
+            {/* Language Badge */}
+            {currentLanguage && (
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 mb-3">
+                <span className="text-lg">{currentLanguage.flag}</span>
+                <span className="text-sm font-medium text-primary">{currentLanguage.name}</span>
+              </div>
             )}
-          >
-            <Play className="w-6 h-6 mr-2" /> 
-            {nextLessonId ? t('common.continue') : t('home.startLearning')}
-          </Button>
+            
+            <h2 className={cn('text-xl font-bold mb-2', isKidsMode && 'text-2xl')}>
+              {goalReached ? t('monkey.goodJob') + " 🍌🎉" : t('monkey.welcome')}
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              {goalReached 
+                ? t('monkey.keepGoing')
+                : t('home.continueStreak')}
+            </p>
+            <Button 
+              onClick={startLesson} 
+              size="lg" 
+              className={cn(
+                'w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground shadow-banana hover:opacity-90 transition-opacity',
+                isKidsMode && 'h-16 text-xl'
+              )}
+            >
+              <Play className="w-6 h-6 mr-2" /> 
+              {nextLessonId ? t('common.continue') : t('home.startLearning')}
+            </Button>
+          </div>
         </div>
 
         {/* Daily Quests Card */}

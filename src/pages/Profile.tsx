@@ -5,7 +5,7 @@ import { useUserProgress } from '@/hooks/useUserProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import AppHeader from '@/components/AppHeader';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import AvatarMascot from '@/components/AvatarMascot';
 import EditProfileModal from '@/components/EditProfileModal';
 import UpgradeModal from '@/components/UpgradeModal';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ const Profile: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -67,13 +67,7 @@ const Profile: React.FC = () => {
         {/* Profile Card */}
         <div className="bg-card rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-              {profile?.avatar_url ? (
-                <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <MonkeyMascot mood="happy" size="sm" />
-              )}
-            </div>
+            <AvatarMascot mood="happy" size="lg" />
             <div className="flex-1">
               <h2 className="font-bold text-xl">{profile?.display_name || 'Learner'}</h2>
               <p className="text-sm text-muted-foreground">{user?.email}</p>

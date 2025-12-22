@@ -2,11 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAppSettings, AvatarType } from '@/contexts/AppSettingsContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Import monkey image
+import monkeyImg from '@/assets/doublango-logo.png';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -20,13 +24,14 @@ interface EditProfileModalProps {
   onSave: () => void;
 }
 
-const AVATAR_OPTIONS = [
-  { url: '', emoji: '🐵', name: 'Monkey' },
-  { url: 'cat', emoji: '🐱', name: 'Cat' },
-  { url: 'owl', emoji: '🦉', name: 'Owl' },
-  { url: 'dragon', emoji: '🐉', name: 'Dragon' },
-  { url: 'robot', emoji: '🤖', name: 'Robot' },
-  { url: 'alien', emoji: '👽', name: 'Alien' },
+// Avatar options with proper image/emoji handling
+const AVATAR_OPTIONS: { type: AvatarType; emoji: string; name: string; image?: string }[] = [
+  { type: 'monkey', emoji: '🐵', name: 'Mango', image: monkeyImg },
+  { type: 'cat', emoji: '🐱', name: 'Whiskers' },
+  { type: 'owl', emoji: '🦉', name: 'Sage' },
+  { type: 'dragon', emoji: '🐉', name: 'Blaze' },
+  { type: 'robot', emoji: '🤖', name: 'Beep' },
+  { type: 'alien', emoji: '👽', name: 'Zyx' },
 ];
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -37,18 +42,19 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { settings, setAvatar } = useAppSettings();
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
-  const [avatarUrl, setAvatarUrl] = useState('');
+  const [selectedAvatar, setSelectedAvatar] = useState<AvatarType>(settings.avatar);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (profile) {
       setDisplayName(profile.display_name || '');
       setUsername(profile.username || '');
-      setAvatarUrl(profile.avatar_url || '');
     }
-  }, [profile]);
+    setSelectedAvatar(settings.avatar);
+  }, [profile, settings.avatar]);
 
   if (!isOpen || !profile) return null;
 
@@ -60,12 +66,15 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
         .update({
           display_name: displayName.trim() || null,
           username: username.trim() || null,
-          avatar_url: avatarUrl || null,
+          avatar_url: selectedAvatar, // Store avatar type as string
           updated_at: new Date().toISOString(),
         })
         .eq('id', profile.id);
 
       if (error) throw error;
+
+      // Update app settings with selected avatar
+      setAvatar(selectedAvatar);
 
       toast({
         title: t('profile.profileUpdated', 'Profile updated'),
@@ -103,21 +112,27 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
             <div className="grid grid-cols-3 gap-3">
               {AVATAR_OPTIONS.map((avatar) => (
                 <button
-                  key={avatar.url || 'default'}
-                  onClick={() => setAvatarUrl(avatar.url)}
+                  key={avatar.type}
+                  onClick={() => setSelectedAvatar(avatar.type)}
                   className={cn(
                     'relative p-3 rounded-xl border-2 transition-all text-center',
-                    avatarUrl === avatar.url
+                    selectedAvatar === avatar.type
                       ? 'border-primary bg-primary/10'
                       : 'border-border hover:border-primary/50'
                   )}
                 >
-                  {avatarUrl === avatar.url && (
+                  {selectedAvatar === avatar.type && (
                     <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                       <Check className="w-3 h-3 text-primary-foreground" />
                     </div>
                   )}
-                  <span className="text-3xl block mb-1">{avatar.emoji}</span>
+                  {avatar.image ? (
+                    <div className="w-12 h-12 mx-auto mb-1 rounded-full overflow-hidden bg-muted">
+                      <img src={avatar.image} alt={avatar.name} className="w-full h-full object-cover" />
+                    </div>
+                  ) : (
+                    <span className="text-3xl block mb-1">{avatar.emoji}</span>
+                  )}
                   <p className="text-xs font-medium">{avatar.name}</p>
                 </button>
               ))}
