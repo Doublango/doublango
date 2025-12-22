@@ -86,8 +86,12 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({ className }) => {
         description: `Now learning ${newLanguage?.name}`,
       });
 
+      // Refetch immediately to update UI
       await refetch();
       setIsOpen(false);
+      
+      // Force page reload to ensure all components update with new language
+      window.location.reload();
     } catch (error) {
       console.error('Error switching language:', error);
       toast({
