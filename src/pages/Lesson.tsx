@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,6 +15,9 @@ import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
+import { generateLessonForLanguage } from '@/lib/languageContent';
+import { generateAiLessonExercises } from '@/lib/content/aiLesson';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
 type Exercise = Database['public']['Tables']['exercises']['Row'];
@@ -83,6 +86,7 @@ const LessonPage: React.FC = () => {
   const { progress, updateProgress, refetch, activeCourse } = useUserProgress();
   const { toast } = useToast();
   const { t } = useTranslation();
+  const { settings: appSettings } = useAppSettings();
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -104,21 +108,73 @@ const LessonPage: React.FC = () => {
   const [monkeyMood, setMonkeyMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
   const [speechResult, setSpeechResult] = useState<{ correct: boolean; transcript: string; accuracy: number } | null>(null);
 
+  const autoPlayedRef = useRef<string | null>(null);
+  const restoredProgressRef = useRef(false);
+
   useEffect(() => {
     const loadLesson = async () => {
       if (!lessonId) return;
+      setLoading(true);
 
       try {
-        const [lessonRes, exercisesRes] = await Promise.all([
-          supabase.from('lessons').select('*').eq('id', lessonId).single(),
-          supabase.from('exercises').select('*').eq('lesson_id', lessonId).order('exercise_order'),
-        ]);
-
+        const lessonRes = await supabase.from('lessons').select('*').eq('id', lessonId).single();
         if (lessonRes.data) setLesson(lessonRes.data);
-        if (exercisesRes.data) {
-          const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
+
+        const exercisesRes = await supabase
+          .from('exercises')
+          .select('*')
+          .eq('lesson_id', lessonId)
+          .order('exercise_order');
+
+        const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
+
+        if (exercisesRes.data?.length) {
           setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
+          return;
         }
+
+        // If backend has no exercises for this lesson yet, generate them.
+        const lessonNumber = lessonRes.data?.lesson_number ?? 1;
+
+        let generated: Array<{ exercise_type: Exercise['exercise_type']; question: string; correct_answer: string; options?: any; hint?: string | null }> = [];
+
+        try {
+          const ai = await generateAiLessonExercises(lang, lessonNumber);
+          generated = ai.map((e) => ({
+            exercise_type: e.exercise_type,
+            question: e.question,
+            correct_answer: e.correct_answer,
+            options: e.options,
+            hint: e.hint ?? null,
+          }));
+        } catch {
+          // ignore and fallback to local generator
+        }
+
+        if (!generated.length) {
+          const local = generateLessonForLanguage(lang, lessonNumber);
+          generated = local.map((e) => ({
+            exercise_type: e.type as Exercise['exercise_type'],
+            question: e.question,
+            correct_answer: e.correctAnswer,
+            options: e.options ?? null,
+            hint: e.hint ?? null,
+          }));
+        }
+
+        const rows: Exercise[] = generated.slice(0, 10).map((g, i) => ({
+          id: `gen-${lessonId}-${i}`,
+          lesson_id: lessonId,
+          exercise_order: i + 1,
+          exercise_type: g.exercise_type,
+          question: g.question,
+          correct_answer: g.correct_answer,
+          options: (g.options ?? null) as any,
+          hint: g.hint ?? null,
+          audio_url: null,
+        }));
+
+        setExercises(rows);
       } catch (error) {
         console.error('Error loading lesson:', error);
         toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
@@ -289,42 +345,64 @@ const LessonPage: React.FC = () => {
     }
   };
 
-  const handleMatchClick = (item: string, isLeft: boolean) => {
+  const getMatchPairs = useCallback((options: unknown): Array<{ left: string; right: string }> => {
+    const opts = options as unknown as { pairs?: Array<{ left: string; right: string }> } | Array<{ left: string; right: string }>;
+    if (opts && typeof opts === 'object' && 'pairs' in opts && Array.isArray((opts as any).pairs)) {
+      return ((opts as any).pairs as Array<{ left: string; right: string }>).filter((p) => p?.left && p?.right);
+    }
+    if (Array.isArray(opts)) return opts.filter((p) => p?.left && p?.right);
+    return [];
+  }, []);
+
+  const handleMatchClick = (item: string) => {
+    if (!currentExercise) return;
     if (matchedPairs.has(item)) return;
+
+    const pairs = getMatchPairs(currentExercise.options);
+    if (!pairs.length) return;
 
     if (!selectedMatch) {
       setSelectedMatch(item);
-    } else {
-      // Check if it's a valid pair
-      const options = currentExercise?.options as Array<{ left: string; right: string }>;
-      const pair = options?.find(p => 
-        (p.left === selectedMatch && p.right === item) ||
-        (p.right === selectedMatch && p.left === item)
-      );
-
-      if (pair) {
-        setMatchedPairs(prev => new Set([...prev, pair.left, pair.right]));
-        if (matchedPairs.size + 2 === (options?.length || 0) * 2) {
-          // All matched
-          setIsChecked(true);
-          setIsCorrect(true);
-          setXpEarned(prev => prev + 10);
-          setMonkeyMood('excited');
-          playSound('correct');
-        }
-      } else {
-        setLives(prev => prev - 1);
-        setMistakes(prev => prev + 1);
-        playSound('incorrect');
-      }
-      setSelectedMatch(null);
+      return;
     }
+
+    const first = selectedMatch;
+    const second = item;
+
+    const pair = pairs.find(
+      (p) => (p.left === first && p.right === second) || (p.right === first && p.left === second)
+    );
+
+    if (pair) {
+      // mark both items as matched
+      setMatchedPairs((prev) => new Set([...prev, pair.left, pair.right]));
+
+      const nextSize = matchedPairs.size + 2;
+      if (nextSize === pairs.length * 2) {
+        // All matched
+        setIsChecked(true);
+        setIsCorrect(true);
+        setXpEarned((prev) => prev + 10);
+        setMonkeyMood('excited');
+        playSound('correct');
+      }
+    } else {
+      setLives((prev) => prev - 1);
+      setMistakes((prev) => prev + 1);
+      playSound('incorrect');
+    }
+
+    setSelectedMatch(null);
   };
 
   const speakText = useCallback((text: string) => {
     const langCode = activeCourse?.language_code || 'es';
-    void speak(text, langCode, { rate: 0.75 });
-  }, [activeCourse?.language_code]);
+    void speak(text, langCode, {
+      rate: 0.9,
+      engine: appSettings.ttsEngine,
+      voiceURI: appSettings.ttsVoiceURI,
+    });
+  }, [activeCourse?.language_code, appSettings.ttsEngine, appSettings.ttsVoiceURI]);
 
   const handleSpeechResult = (correct: boolean, transcript: string, accuracy: number) => {
     setSpeechResult({ correct, transcript, accuracy });
@@ -633,7 +711,7 @@ const LessonPage: React.FC = () => {
                       {pairs.map((pair, i) => (
                         <button
                           key={`left-${i}`}
-                          onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left, true)}
+                          onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left)}
                           disabled={matchedPairs.has(pair.left)}
                           className={cn(
                             'w-full p-4 rounded-xl border-2 transition-all',
@@ -650,8 +728,8 @@ const LessonPage: React.FC = () => {
                       {shuffleArray(pairs).map((pair, i) => (
                         <button
                           key={`right-${i}`}
-                          onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right, false)}
-                          disabled={matchedPairs.has(pair.right)}
+                           onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right)}
+                           disabled={matchedPairs.has(pair.right)}
                           className={cn(
                             'w-full p-4 rounded-xl border-2 transition-all',
                             matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',

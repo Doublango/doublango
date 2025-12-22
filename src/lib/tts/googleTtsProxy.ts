@@ -9,15 +9,19 @@ export const playGoogleTTSProxy = async (text: string, lang: string): Promise<vo
   try {
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-tts`;
 
+    const controller = new AbortController();
+    const abortId = window.setTimeout(() => controller.abort(), 25000);
+
     const res = await fetch(url, {
       method: "POST",
+      signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
         apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
       body: JSON.stringify({ text: trimmed, lang }),
-    });
+    }).finally(() => window.clearTimeout(abortId));
 
     if (!res.ok) {
       // Avoid throwing noisy errors that would break UX; just bail.
@@ -28,6 +32,8 @@ export const playGoogleTTSProxy = async (text: string, lang: string): Promise<vo
     const blob = await res.blob();
     const audioUrl = URL.createObjectURL(blob);
     const audio = new Audio(audioUrl);
+    audio.preload = "auto";
+    audio.load();
 
     let done = false;
     const finish = () => {
@@ -42,8 +48,8 @@ export const playGoogleTTSProxy = async (text: string, lang: string): Promise<vo
       finish();
     };
 
-    // Hard timeout safety
-    void timeout(15000).then(finish);
+    // Hard timeout safety (longer so slow networks still play)
+    void timeout(30000).then(finish);
 
     await audio.play().catch(() => finish());
   } catch {
