@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { speak } from '@/lib/tts';
+import { speak, cancelSpeech, preloadVoices } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
 
 interface AudioExerciseProps {
@@ -24,15 +24,32 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [playCount, setPlayCount] = useState(0);
   const [audioSupported, setAudioSupported] = useState(true);
+  const mountedRef = useRef(true);
 
+  // Preload voices on mount
   useEffect(() => {
+    mountedRef.current = true;
+    
     if (!('speechSynthesis' in window)) {
       setAudioSupported(false);
+      return;
     }
-  }, []);
+    
+    // Preload voices for this language
+    preloadVoices(languageCode).then(hasVoice => {
+      if (mountedRef.current && !hasVoice) {
+        console.warn('No voice available for', languageCode);
+      }
+    });
+    
+    return () => {
+      mountedRef.current = false;
+      cancelSpeech();
+    };
+  }, [languageCode]);
 
   const speakText = useCallback(async () => {
-    if (isPlaying || !audioSupported) return;
+    if (isPlaying || !audioSupported || !correctAnswer) return;
     
     setIsPlaying(true);
     
@@ -43,27 +60,28 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     } catch (error) {
       console.error('Speech error:', error);
     } finally {
-      setIsPlaying(false);
-      setHasPlayed(true);
-      setPlayCount(prev => prev + 1);
+      if (mountedRef.current) {
+        setIsPlaying(false);
+        setHasPlayed(true);
+        setPlayCount(prev => prev + 1);
+      }
     }
   }, [correctAnswer, languageCode, isPlaying, playCount, audioSupported]);
 
-  // Auto-play on mount
+  // Auto-play on mount with delay
   useEffect(() => {
-    if (!audioSupported) return;
+    if (!audioSupported || !correctAnswer) return;
     
     const timer = setTimeout(() => {
-      if (!hasPlayed) {
+      if (!hasPlayed && mountedRef.current) {
         speakText();
       }
-    }, 800);
+    }, 1000);
     
     return () => {
       clearTimeout(timer);
-      window.speechSynthesis.cancel();
     };
-  }, [audioSupported]);
+  }, [audioSupported, correctAnswer]);
 
   const handleSubmit = () => {
     onAnswer(typedAnswer);
