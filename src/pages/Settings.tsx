@@ -113,9 +113,10 @@ const Settings: React.FC = () => {
     {
       title: t('settings.support', 'Support'),
       items: [
-        { id: 'help', label: t('settings.helpCenter', 'Help Center'), icon: HelpCircle, action: () => toast({ title: t('settings.helpCenter', 'Help Center'), description: 'Coming soon!' }) },
-        { id: 'privacy', label: t('settings.privacyPolicy', 'Privacy Policy'), icon: Shield, action: () => toast({ title: t('settings.privacyPolicy', 'Privacy Policy'), description: 'Coming soon!' }) },
-        { id: 'about', label: 'About DoubLango', icon: Info, action: () => toast({ title: 'DoubLango v1.0', description: 'Learn languages the fun way!' }) },
+        { id: 'help', label: t('settings.helpCenter', 'Help Center'), icon: HelpCircle, action: () => navigate('/help') },
+        { id: 'privacy', label: t('settings.privacyPolicy', 'Privacy Policy'), icon: Shield, action: () => navigate('/privacy-policy') },
+        { id: 'about', label: 'About DoubLango', icon: Info, action: () => navigate('/about') },
+        { id: 'reminders', label: t('settings.practiceReminders', 'Practice Reminders'), icon: Bell, action: () => navigate('/reminders') },
       ]
     }
   ];
