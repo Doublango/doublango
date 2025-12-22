@@ -10,8 +10,7 @@ import StatCard from '@/components/StatCard';
 import ProgressBar from '@/components/ProgressBar';
 import AvatarMascot from '@/components/AvatarMascot';
 import LanguageSelector from '@/components/LanguageSelector';
-import UILanguageDropdown from '@/components/UILanguageDropdown';
-import DarkModeToggle from '@/components/DarkModeToggle';
+import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { Play, Target, Flame, Crown } from 'lucide-react';
@@ -113,25 +112,22 @@ const Home: React.FC = () => {
   return (
     <div className={cn('min-h-screen bg-background pb-24', isKidsMode && 'text-lg')}>
       {/* Header */}
-      <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-2">
-            <LanguageSelector />
-            <UILanguageDropdown />
-          </div>
-          <div className="flex items-center gap-2">
-            <DarkModeToggle />
-            <button 
+      <AppHeader
+        leftSlot={<LanguageSelector />}
+        rightSlot={
+          <>
+            <button
               onClick={() => setShowUpgradeModal(true)}
               className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-colors"
+              aria-label={t('subscription.upgradeToPremium')}
             >
               <Crown className="w-5 h-5 text-banana" />
             </button>
             <StatCard type="streak" value={progress?.current_streak || 0} />
             <StatCard type="lives" value={progress?.lives || 5} maxValue={5} />
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <main className="px-4 py-6 max-w-lg mx-auto space-y-6">
         {/* Daily Goal Card */}
