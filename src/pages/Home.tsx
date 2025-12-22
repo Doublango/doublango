@@ -8,16 +8,22 @@ import { Button } from '@/components/ui/button';
 import BottomNavigation from '@/components/BottomNavigation';
 import StatCard from '@/components/StatCard';
 import ProgressBar from '@/components/ProgressBar';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import AvatarMascot from '@/components/AvatarMascot';
 import LanguageSelector from '@/components/LanguageSelector';
-import { Play, Target, Flame } from 'lucide-react';
+import UILanguageDropdown from '@/components/UILanguageDropdown';
+import UpgradeModal from '@/components/UpgradeModal';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { Play, Target, Flame, Crown } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { profile, progress, activeCourse, loading: progressLoading } = useUserProgress();
+  const { settings } = useAppSettings();
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Redirect to landing if not logged in
   useEffect(() => {
@@ -87,7 +93,7 @@ const Home: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -97,17 +103,28 @@ const Home: React.FC = () => {
     return null;
   }
 
+  const isKidsMode = settings.kidsMode;
+
   const todayXp = progress?.today_xp || 0;
   const dailyGoal = profile?.daily_goal_xp || 20;
   const goalReached = todayXp >= dailyGoal;
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className={cn('min-h-screen bg-background pb-24', isKidsMode && 'text-lg')}>
       {/* Header */}
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-between max-w-lg mx-auto">
-          <LanguageSelector />
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
+            <LanguageSelector />
+            <UILanguageDropdown compact />
+          </div>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={() => setShowUpgradeModal(true)}
+              className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-colors"
+            >
+              <Crown className="w-5 h-5 text-banana" />
+            </button>
             <StatCard type="streak" value={progress?.current_streak || 0} />
             <StatCard type="lives" value={progress?.lives || 5} maxValue={5} />
           </div>
@@ -140,12 +157,12 @@ const Home: React.FC = () => {
 
         {/* Main CTA Card */}
         <div className="bg-card rounded-3xl p-6 shadow-md text-center">
-          <MonkeyMascot 
+          <AvatarMascot 
             mood={goalReached ? 'celebrating' : 'happy'} 
             size="lg" 
             className="mx-auto mb-4" 
           />
-          <h2 className="text-xl font-bold mb-2">
+          <h2 className={cn('text-xl font-bold mb-2', isKidsMode && 'text-2xl')}>
             {goalReached ? t('monkey.goodJob') + " 🍌🎉" : t('monkey.welcome')}
           </h2>
           <p className="text-muted-foreground mb-6">
@@ -156,7 +173,10 @@ const Home: React.FC = () => {
           <Button 
             onClick={startLesson} 
             size="lg" 
-            className="w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground shadow-banana hover:opacity-90 transition-opacity"
+            className={cn(
+              'w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground shadow-banana hover:opacity-90 transition-opacity',
+              isKidsMode && 'h-16 text-xl'
+            )}
           >
             <Play className="w-6 h-6 mr-2" /> 
             {nextLessonId ? t('common.continue') : t('home.startLearning')}
@@ -214,6 +234,7 @@ const Home: React.FC = () => {
       </main>
 
       <BottomNavigation />
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
     </div>
   );
 };

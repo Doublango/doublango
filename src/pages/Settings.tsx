@@ -4,12 +4,15 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
+import AvatarMascot from '@/components/AvatarMascot';
+import UpgradeModal from '@/components/UpgradeModal';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { 
   ArrowLeft, User, Bell, Globe, Crown, LogOut, 
-  ChevronRight, Shield, HelpCircle, Info, Volume2, Check
+  ChevronRight, Shield, HelpCircle, Info, Volume2, Check, 
+  Moon, Sun, Baby, Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,12 +24,13 @@ const Settings: React.FC = () => {
   const { profile } = useUserProgress();
   const { toast } = useToast();
   const { t, i18n } = useTranslation();
+  const { settings, setDarkMode, setKidsMode } = useAppSettings();
   
   const [notifications, setNotifications] = useState(true);
   const [soundEffects, setSoundEffects] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const currentUILanguage = UI_LANGUAGES.find(l => l.code === i18n.language) || UI_LANGUAGES[0];
 
@@ -56,6 +60,24 @@ const Settings: React.FC = () => {
     }
   };
 
+  const handleDarkModeToggle = (enabled: boolean) => {
+    setDarkMode(enabled);
+    toast({
+      title: enabled ? '🌙 Dark mode enabled' : '☀️ Light mode enabled',
+      description: 'Your preference has been saved.',
+    });
+  };
+
+  const handleKidsModeToggle = (enabled: boolean) => {
+    setKidsMode(enabled);
+    toast({
+      title: enabled ? '🧒 Kids Mode enabled!' : '📚 Standard mode enabled',
+      description: enabled 
+        ? 'Simpler content and bigger buttons activated!' 
+        : 'Full learning experience restored.',
+    });
+  };
+
   const handleLanguageChange = (langCode: string) => {
     changeUILanguage(langCode);
     const lang = UI_LANGUAGES.find(l => l.code === langCode);
@@ -71,12 +93,14 @@ const Settings: React.FC = () => {
       title: t('settings.account', 'Account'),
       items: [
         { id: 'profile', label: t('settings.editProfile', 'Edit Profile'), icon: User, action: () => navigate('/profile') },
-        { id: 'subscription', label: t('settings.subscription', 'Subscription'), icon: Crown, action: () => setShowSubscriptionModal(true), badge: t('subscription.free', 'Free') },
+        { id: 'subscription', label: t('subscription.upgradeToPremium', 'Upgrade to Premium'), icon: Crown, action: () => setShowUpgradeModal(true), badge: t('subscription.free', 'Free') },
       ]
     },
     {
       title: t('settings.preferences', 'Preferences'),
       items: [
+        { id: 'darkMode', label: settings.darkMode ? 'Dark Mode' : 'Light Mode', icon: settings.darkMode ? Moon : Sun, toggle: true, value: settings.darkMode, onChange: handleDarkModeToggle },
+        { id: 'kidsMode', label: 'Kids Mode', icon: Baby, toggle: true, value: settings.kidsMode, onChange: handleKidsModeToggle, badge: settings.kidsMode ? '👶' : undefined },
         { id: 'notifications', label: t('settings.practiceReminders', 'Practice Reminders'), icon: Bell, toggle: true, value: notifications, onChange: handleNotificationToggle },
         { id: 'sounds', label: t('settings.soundEffects', 'Sound Effects'), icon: Volume2, toggle: true, value: soundEffects, onChange: setSoundEffects },
         { id: 'language', label: t('settings.appLanguage', 'App Language'), icon: Globe, action: () => setShowLanguageModal(true), value: currentUILanguage.nativeName },
@@ -87,7 +111,7 @@ const Settings: React.FC = () => {
       items: [
         { id: 'help', label: t('settings.helpCenter', 'Help Center'), icon: HelpCircle, action: () => toast({ title: t('settings.helpCenter', 'Help Center'), description: 'Coming soon!' }) },
         { id: 'privacy', label: t('settings.privacyPolicy', 'Privacy Policy'), icon: Shield, action: () => toast({ title: t('settings.privacyPolicy', 'Privacy Policy'), description: 'Coming soon!' }) },
-        { id: 'about', label: t('settings.about', 'About LangoMonkey'), icon: Info, action: () => toast({ title: 'LangoMonkey v1.0', description: 'Learn languages the fun way!' }) },
+        { id: 'about', label: 'About DoubLango', icon: Info, action: () => toast({ title: 'DoubLango v1.0', description: 'Learn languages the fun way!' }) },
       ]
     }
   ];
@@ -107,9 +131,7 @@ const Settings: React.FC = () => {
       <main className="px-4 py-6 max-w-lg mx-auto space-y-6">
         {/* User Info */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-            <MonkeyMascot mood="happy" size="sm" />
-          </div>
+          <AvatarMascot mood="happy" size="md" />
           <div>
             <p className="font-semibold">{profile?.display_name || 'Learner'}</p>
             <p className="text-sm text-muted-foreground">{user?.email}</p>
@@ -169,64 +191,12 @@ const Settings: React.FC = () => {
 
         {/* App Version */}
         <p className="text-center text-xs text-muted-foreground">
-          LangoMonkey v1.0.0
+          DoubLango v1.0.0
         </p>
       </main>
 
-      {/* Subscription Modal */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-card rounded-t-3xl sm:rounded-3xl w-full max-w-md max-h-[80vh] overflow-y-auto animate-slide-up">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold">{t('subscription.upgradeToPremium', 'Upgrade to Premium')}</h2>
-                <button onClick={() => setShowSubscriptionModal(false)} className="text-muted-foreground">✕</button>
-              </div>
-              
-              <div className="flex justify-center mb-6">
-                <MonkeyMascot mood="excited" size="lg" animate />
-              </div>
-
-              {/* Premium Plan */}
-              <div className="border-2 border-primary rounded-2xl p-4 mb-4 relative">
-                <span className="absolute -top-3 left-4 bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                  {t('subscription.mostPopular', 'Most Popular')}
-                </span>
-                <h3 className="font-bold text-lg mb-1">{t('subscription.premium', 'Premium')}</h3>
-                <p className="text-2xl font-bold text-primary">£4.99<span className="text-sm font-normal text-muted-foreground">{t('subscription.perMonth', '/month')}</span></p>
-                <p className="text-sm text-muted-foreground mb-3">or £39.99{t('subscription.perYear', '/year')} ({t('subscription.savePercent', { percent: 33 })})</p>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-center gap-2">✓ {t('subscription.unlimitedLives', 'Unlimited energy lives')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.noAds', 'No ads')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.offlineLessons', 'Offline lessons')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.monthlyStreakRepair', 'Monthly streak repair')}</li>
-                </ul>
-                <Button className="w-full mt-4 gradient-primary">{t('subscription.startTrial', 'Start 14-Day Free Trial')}</Button>
-              </div>
-
-              {/* Pro Plan */}
-              <div className="border border-border rounded-2xl p-4">
-                <h3 className="font-bold text-lg mb-1">{t('subscription.pro', 'Pro')}</h3>
-                <p className="text-2xl font-bold">£9.99<span className="text-sm font-normal text-muted-foreground">{t('subscription.perMonth', '/month')}</span></p>
-                <p className="text-sm text-muted-foreground mb-3">or £89.99{t('subscription.perYear', '/year')} ({t('subscription.savePercent', { percent: 25 })})</p>
-                <ul className="space-y-2 text-sm">
-                  <li className="flex items-center gap-2">✓ {t('subscription.everythingInPremium', 'Everything in Premium')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.aiExplain', 'AI Explain My Mistake')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.roleplayChat', 'Roleplay Chat')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.aiConversation', 'AI Conversation Practice')}</li>
-                  <li className="flex items-center gap-2">✓ {t('subscription.prioritySupport', 'Priority support')}</li>
-                </ul>
-                <Button variant="outline" className="w-full mt-4">{t('subscription.startTrial', 'Start 14-Day Free Trial')}</Button>
-              </div>
-
-              {/* Family Plan */}
-              <p className="text-center text-sm text-muted-foreground mt-4">
-                {t('subscription.familyPlan', 'Family Plan available for up to 6 members')}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Upgrade Modal */}
+      <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
 
       {/* Language Modal */}
       {showLanguageModal && (
