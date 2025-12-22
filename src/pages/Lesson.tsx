@@ -119,6 +119,7 @@ const LessonPage: React.FC = () => {
           const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
           setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
         }
+      } catch (error) {
         console.error('Error loading lesson:', error);
         toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
       } finally {
