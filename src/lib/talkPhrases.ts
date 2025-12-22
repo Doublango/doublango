@@ -1,4 +1,4 @@
-// Comprehensive phrase library for Talk practice with difficulty levels
+// Comprehensive phrase library for Talk practice with difficulty levels and no-repeat logic
 
 export type DifficultyLevel = 'beginner' | 'basic' | 'intermediate' | 'advanced';
 
