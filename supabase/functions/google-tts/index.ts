@@ -54,8 +54,9 @@ serve(async (req) => {
         "Cache-Control": "public, max-age=86400",
       },
     });
-  } catch (e) {
-    return new Response(JSON.stringify({ error: e?.message ?? "Unknown error" }), {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: msg || "Unknown error" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
