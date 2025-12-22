@@ -6,6 +6,7 @@ import { useUserProgress } from '@/hooks/useUserProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
+import { Slider } from '@/components/ui/slider';
 import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -19,6 +20,15 @@ interface UnitWithLessons extends Unit {
   completedLessons: number;
 }
 
+const CEFR_LEVELS = [
+  { value: 'A1', label: 'A1 - Beginner', emoji: '🌱' },
+  { value: 'A2', label: 'A2 - Elementary', emoji: '📗' },
+  { value: 'B1', label: 'B1 - Intermediate', emoji: '📘' },
+  { value: 'B2', label: 'B2 - Upper-Int', emoji: '📙' },
+  { value: 'C1', label: 'C1 - Advanced', emoji: '🔥' },
+  { value: 'C2', label: 'C2 - Mastery', emoji: '🏆' },
+];
+
 const Learn: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
@@ -27,6 +37,7 @@ const Learn: React.FC = () => {
   const [units, setUnits] = useState<UnitWithLessons[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(0); // 0=A1, 1=A2, etc.
 
   // Only redirect to auth AFTER loading is complete and we're sure there's no user
   useEffect(() => {
@@ -135,8 +146,38 @@ const Learn: React.FC = () => {
 
       {/* Course Path */}
       <main className="px-4 py-6 max-w-lg mx-auto">
+        {/* Difficulty Slider */}
+        <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-medium text-sm">Difficulty Level</span>
+            <span className="text-sm font-bold text-primary">
+              {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
+            </span>
+          </div>
+          <Slider
+            value={[difficultyLevel]}
+            onValueChange={(val) => setDifficultyLevel(val[0])}
+            max={5}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+            {CEFR_LEVELS.map((l, i) => (
+              <span key={l.value} className={cn(difficultyLevel === i && "text-primary font-medium")}>
+                {l.emoji}
+              </span>
+            ))}
+          </div>
+        </div>
+
         <div className="space-y-8">
-          {units.map((unit, unitIndex) => (
+          {units.filter(unit => {
+            // Filter units by CEFR level - show units at or below selected level
+            const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+            const selectedCEFR = CEFR_LEVELS[difficultyLevel]?.value || 'A1';
+            const unitLevel = unit.cefr_level || 'A1';
+            return levelOrder.indexOf(unitLevel) <= levelOrder.indexOf(selectedCEFR);
+          }).map((unit, unitIndex) => (
             <div key={unit.id} className="space-y-4">
               {/* Unit Header */}
               <div className="bg-card rounded-2xl p-4 shadow-md">

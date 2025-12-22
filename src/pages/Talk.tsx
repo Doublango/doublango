@@ -101,11 +101,26 @@ const Talk: React.FC = () => {
     return categories.find(c => c.id === selectedCategory) || null;
   }, [selectedCategory, categories]);
 
+  // Track used phrases per session to avoid repeats
+  const [sessionPhrases, setSessionPhrases] = useState<PhraseData[]>([]);
+
+  // Initialize session phrases when category is selected
+  useEffect(() => {
+    if (selectedCategory) {
+      const category = categories.find(c => c.id === selectedCategory);
+      if (category) {
+        // Shuffle phrases for this session
+        const shuffled = [...category.phrases].sort(() => Math.random() - 0.5);
+        setSessionPhrases(shuffled);
+        setCurrentPhraseIndex(0);
+      }
+    }
+  }, [selectedCategory, categories]);
+
   const getCurrentPhrase = useCallback(() => {
-    const category = getCurrentCategory();
-    if (!category) return null;
+    if (!selectedCategory || sessionPhrases.length === 0) return null;
     
-    const phraseData = category.phrases[currentPhraseIndex];
+    const phraseData = sessionPhrases[currentPhraseIndex];
     if (!phraseData) return null;
 
     const translatedPhrase = getTranslatedPhrase(phraseData.key, phraseData.en);
@@ -116,7 +131,7 @@ const Talk: React.FC = () => {
       key: phraseData.key,
       level: phraseData.level,
     };
-  }, [getCurrentCategory, currentPhraseIndex, getTranslatedPhrase]);
+  }, [selectedCategory, sessionPhrases, currentPhraseIndex, getTranslatedPhrase]);
 
   const speakPhrase = useCallback(async (text: string) => {
     if (isSpeaking || !text) return;
@@ -184,17 +199,14 @@ const Talk: React.FC = () => {
   };
 
   const nextPhrase = useCallback(() => {
-    const category = getCurrentCategory();
-    if (!category) return;
-    
-    if (currentPhraseIndex < category.phrases.length - 1) {
+    if (currentPhraseIndex < sessionPhrases.length - 1) {
       setCurrentPhraseIndex(prev => prev + 1);
       setTranscript('');
       setAccuracy(null);
     } else {
       setPracticeComplete(true);
     }
-  }, [getCurrentCategory, currentPhraseIndex]);
+  }, [sessionPhrases.length, currentPhraseIndex]);
 
   const resetPractice = () => {
     setSelectedCategory(null);
@@ -202,6 +214,7 @@ const Talk: React.FC = () => {
     setTranscript('');
     setAccuracy(null);
     setPracticeComplete(false);
+    setSessionPhrases([]);
     cancelSpeech();
   };
 
