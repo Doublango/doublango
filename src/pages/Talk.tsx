@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useTranslation } from 'react-i18next';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AppHeader from '@/components/AppHeader';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
@@ -12,82 +13,106 @@ import {
   Mic2, Volume2, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { speak, preloadVoices } from '@/lib/tts';
-import { LANGUAGE_CONTENT } from '@/lib/languageContent';
-import { getTTSLanguageCode } from '@/lib/languageContent';
+import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
+import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
 
-// Phrase key mapping from English phrases to languageContent keys
-const PHRASE_KEY_MAP: Record<string, string> = {
-  'hello': 'hello',
-  'good morning': 'good_morning',
-  'good evening': 'good_night',
-  'goodbye': 'goodbye',
-  'see you later': 'goodbye',
-  'yes': 'yes',
-  'no': 'no',
-  'please': 'please',
-  'thank you': 'thank_you',
-  "you're welcome": 'please',
-  'excuse me': 'excuse_me',
-  'sorry': 'sorry',
-  'my name is...': 'my_name_is',
-  'nice to meet you': 'nice_to_meet_you',
-  'how are you?': 'how_are_you',
-  'i am fine': 'im_fine',
-  'where are you from?': 'where_is',
-  'one': 'yes',
-  'two': 'no',
-  'three': 'yes',
-  'four': 'no',
-  'five': 'yes',
-  'six': 'no',
-  'seven': 'yes',
-  'eight': 'no',
-  'nine': 'yes',
-  'ten': 'no',
-  'water': 'water',
-  'coffee': 'food',
-  'tea': 'food',
-  'bread': 'food',
-  'i am hungry': 'food',
-  'i am thirsty': 'water',
-  'the bill, please': 'how_much',
-  'where is...?': 'where_is',
-  'left': 'yes',
-  'right': 'no',
-  'straight ahead': 'yes',
-  'near': 'yes',
-  'far': 'no',
-  'what time is it?': 'how_are_you',
-  'today': 'good_morning',
-  'tomorrow': 'good_night',
-  'yesterday': 'goodbye',
-  'morning': 'good_morning',
-  'afternoon': 'good_morning',
-  'night': 'good_night',
-  'how much?': 'how_much',
-  'too expensive': 'no',
-  'i want to buy...': 'please',
-  'do you have...?': 'where_is',
-  'size': 'how_much',
+// Comprehensive phrase library with translations for all languages
+const PHRASE_LIBRARY = {
+  greetings: {
+    title: 'Greetings',
+    icon: '👋',
+    phrases: [
+      { key: 'hello', en: 'Hello' },
+      { key: 'good_morning', en: 'Good morning' },
+      { key: 'good_night', en: 'Good evening' },
+      { key: 'goodbye', en: 'Goodbye' },
+      { key: 'how_are_you', en: 'How are you?' },
+    ]
+  },
+  basics: {
+    title: 'Basic Phrases',
+    icon: '💬',
+    phrases: [
+      { key: 'yes', en: 'Yes' },
+      { key: 'no', en: 'No' },
+      { key: 'please', en: 'Please' },
+      { key: 'thank_you', en: 'Thank you' },
+      { key: 'excuse_me', en: 'Excuse me' },
+      { key: 'sorry', en: 'Sorry' },
+      { key: 'i_dont_understand', en: "I don't understand" },
+    ]
+  },
+  introductions: {
+    title: 'Introductions',
+    icon: '🤝',
+    phrases: [
+      { key: 'my_name_is', en: 'My name is...' },
+      { key: 'nice_to_meet_you', en: 'Nice to meet you' },
+      { key: 'how_are_you', en: 'How are you?' },
+      { key: 'im_fine', en: 'I am fine' },
+      { key: 'where_is', en: 'Where are you from?' },
+    ]
+  },
+  essentials: {
+    title: 'Essentials',
+    icon: '🍽️',
+    phrases: [
+      { key: 'water', en: 'Water' },
+      { key: 'food', en: 'Food' },
+      { key: 'help', en: 'Help' },
+      { key: 'how_much', en: 'How much?' },
+      { key: 'where_is', en: 'Where is...?' },
+    ]
+  },
 };
 
-const SPEECH_CATEGORIES = [
-  { id: 'greetings', title: 'Greetings', icon: '👋', phrases: ['Hello', 'Good morning', 'Good evening', 'Goodbye', 'See you later'] },
-  { id: 'basics', title: 'Basic Phrases', icon: '💬', phrases: ['Yes', 'No', 'Please', 'Thank you', "You're welcome", 'Excuse me', 'Sorry'] },
-  { id: 'introductions', title: 'Introductions', icon: '🤝', phrases: ['My name is...', 'Nice to meet you', 'How are you?', 'I am fine', 'Where are you from?'] },
-  { id: 'numbers', title: 'Numbers', icon: '🔢', phrases: ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'] },
-  { id: 'food', title: 'Food & Drink', icon: '🍽️', phrases: ['Water', 'Coffee', 'Tea', 'Bread', 'I am hungry', 'I am thirsty', 'The bill, please'] },
-  { id: 'directions', title: 'Directions', icon: '🧭', phrases: ['Where is...?', 'Left', 'Right', 'Straight ahead', 'Near', 'Far'] },
-  { id: 'time', title: 'Time', icon: '⏰', phrases: ['What time is it?', 'Today', 'Tomorrow', 'Yesterday', 'Morning', 'Afternoon', 'Night'] },
-  { id: 'shopping', title: 'Shopping', icon: '🛍️', phrases: ['How much?', 'Too expensive', 'I want to buy...', 'Do you have...?', 'Size'] },
-];
+// Kids-friendly phrases
+const KIDS_PHRASE_LIBRARY = {
+  greetings: {
+    title: 'Say Hi! 👋',
+    icon: '👋',
+    phrases: [
+      { key: 'hello', en: 'Hello!' },
+      { key: 'good_morning', en: 'Good morning!' },
+      { key: 'goodbye', en: 'Bye bye!' },
+    ]
+  },
+  polite: {
+    title: 'Magic Words ✨',
+    icon: '✨',
+    phrases: [
+      { key: 'please', en: 'Please' },
+      { key: 'thank_you', en: 'Thank you!' },
+      { key: 'sorry', en: 'Sorry' },
+    ]
+  },
+  basics: {
+    title: 'Yes & No 👍',
+    icon: '👍',
+    phrases: [
+      { key: 'yes', en: 'Yes!' },
+      { key: 'no', en: 'No' },
+      { key: 'help', en: 'Help!' },
+    ]
+  },
+  food: {
+    title: 'Yummy! 🍎',
+    icon: '🍎',
+    phrases: [
+      { key: 'water', en: 'Water' },
+      { key: 'food', en: 'Food' },
+    ]
+  },
+};
 
 const Talk: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { activeCourse, loading: progressLoading } = useUserProgress();
+  const { settings } = useAppSettings();
+  const isKidsMode = settings.kidsMode;
+  
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isListening, setIsListening] = useState(false);
@@ -98,10 +123,18 @@ const Talk: React.FC = () => {
 
   const languageCode = activeCourse?.language_code || 'es';
   const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
+  
+  // Use kids or adult phrase library
+  const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : PHRASE_LIBRARY;
+  const categories = Object.entries(phraseLibrary).map(([id, data]) => ({
+    id,
+    ...data
+  }));
 
   // Preload voices when language changes
   useEffect(() => {
     preloadVoices(languageCode);
+    return () => cancelSpeech();
   }, [languageCode]);
 
   useEffect(() => {
@@ -110,31 +143,46 @@ const Talk: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const getTranslatedPhrase = useCallback((englishPhrase: string): string => {
-    const key = PHRASE_KEY_MAP[englishPhrase.toLowerCase()];
-    if (key && languageContent && languageContent[key]) {
-      return languageContent[key];
+  // Get translated phrase from language content
+  const getTranslatedPhrase = useCallback((phraseKey: string): string => {
+    if (languageContent && languageContent[phraseKey]) {
+      return languageContent[phraseKey];
     }
-    // Fallback to the English phrase
-    return englishPhrase;
+    // Fallback: try to find in default Spanish
+    if (LANGUAGE_CONTENT.es[phraseKey]) {
+      return LANGUAGE_CONTENT.es[phraseKey];
+    }
+    return '';
   }, [languageContent]);
 
-  const getCurrentPhrase = useCallback(() => {
+  const getCurrentCategory = useCallback(() => {
     if (!selectedCategory) return null;
-    const category = SPEECH_CATEGORIES.find(c => c.id === selectedCategory);
+    return categories.find(c => c.id === selectedCategory) || null;
+  }, [selectedCategory, categories]);
+
+  const getCurrentPhrase = useCallback(() => {
+    const category = getCurrentCategory();
     if (!category) return null;
     
-    const englishPhrase = category.phrases[currentPhraseIndex];
-    const translatedPhrase = getTranslatedPhrase(englishPhrase);
+    const phraseData = category.phrases[currentPhraseIndex];
+    if (!phraseData) return null;
+    
+    const translatedPhrase = getTranslatedPhrase(phraseData.key);
+    
+    // Skip if no translation available
+    if (!translatedPhrase) {
+      return null;
+    }
     
     return {
-      english: englishPhrase,
+      english: phraseData.en,
       translation: translatedPhrase,
+      key: phraseData.key,
     };
-  }, [selectedCategory, currentPhraseIndex, getTranslatedPhrase]);
+  }, [getCurrentCategory, currentPhraseIndex, getTranslatedPhrase]);
 
   const speakPhrase = useCallback(async (text: string) => {
-    if (isSpeaking) return;
+    if (isSpeaking || !text) return;
     
     setIsSpeaking(true);
     try {
@@ -156,7 +204,6 @@ const Talk: React.FC = () => {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    // Use proper TTS language code for speech recognition
     recognition.lang = getTTSLanguageCode(languageCode);
 
     recognition.onstart = () => setIsListening(true);
@@ -179,8 +226,8 @@ const Talk: React.FC = () => {
   }, [languageCode, getCurrentPhrase]);
 
   const calculateAccuracy = (target: string, spoken: string): number => {
-    const targetClean = target.toLowerCase().replace(/[^\w\s]/g, '');
-    const spokenClean = spoken.toLowerCase().replace(/[^\w\s]/g, '');
+    const targetClean = target.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const spokenClean = spoken.toLowerCase().replace(/[^\w\s]/g, '').trim();
     
     if (targetClean === spokenClean) return 100;
     
@@ -189,14 +236,14 @@ const Talk: React.FC = () => {
     
     let matches = 0;
     targetWords.forEach(word => {
-      if (spokenWords.includes(word)) matches++;
+      if (spokenWords.some(sw => sw.includes(word) || word.includes(sw))) matches++;
     });
     
     return Math.round((matches / Math.max(targetWords.length, 1)) * 100);
   };
 
   const nextPhrase = useCallback(() => {
-    const category = SPEECH_CATEGORIES.find(c => c.id === selectedCategory);
+    const category = getCurrentCategory();
     if (!category) return;
     
     if (currentPhraseIndex < category.phrases.length - 1) {
@@ -206,7 +253,7 @@ const Talk: React.FC = () => {
     } else {
       setPracticeComplete(true);
     }
-  }, [selectedCategory, currentPhraseIndex]);
+  }, [getCurrentCategory, currentPhraseIndex]);
 
   const resetPractice = () => {
     setSelectedCategory(null);
@@ -214,6 +261,7 @@ const Talk: React.FC = () => {
     setTranscript('');
     setAccuracy(null);
     setPracticeComplete(false);
+    cancelSpeech();
   };
 
   if (authLoading || progressLoading) {
@@ -246,9 +294,22 @@ const Talk: React.FC = () => {
 
   // Active Practice Screen
   if (selectedCategory) {
-    const category = SPEECH_CATEGORIES.find(c => c.id === selectedCategory);
+    const category = getCurrentCategory();
     const phrase = getCurrentPhrase();
     const progressPercent = ((currentPhraseIndex + 1) / (category?.phrases.length || 1)) * 100;
+
+    // Handle case where phrase couldn't be translated
+    if (!phrase && category && currentPhraseIndex < category.phrases.length - 1) {
+      // Skip to next phrase automatically
+      setTimeout(() => {
+        setCurrentPhraseIndex(prev => prev + 1);
+      }, 0);
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <MonkeyMascot mood="thinking" size="lg" animate />
+        </div>
+      );
+    }
 
     return (
       <div className="min-h-screen bg-background pb-24">
@@ -271,21 +332,23 @@ const Talk: React.FC = () => {
           </div>
 
           {/* Phrase Card */}
-          <div className="bg-card rounded-2xl p-6 shadow-md mb-6">
-            <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
-            <p className="text-2xl font-bold mb-2">{phrase?.translation}</p>
-            <p className="text-sm text-muted-foreground mb-4">({phrase?.english})</p>
-            
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={() => phrase && speakPhrase(phrase.translation)}
-              disabled={isSpeaking}
-            >
-              <Volume2 className={cn("w-4 h-4", isSpeaking && "animate-pulse")} />
-              {isSpeaking ? t('speech.playing', 'Playing...') : t('speech.listen', 'Listen')}
-            </Button>
-          </div>
+          {phrase && (
+            <div className="bg-card rounded-2xl p-6 shadow-md mb-6">
+              <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
+              <p className="text-2xl font-bold mb-2">{phrase.translation}</p>
+              <p className="text-sm text-muted-foreground mb-4">({phrase.english})</p>
+              
+              <Button 
+                variant="outline" 
+                className="gap-2"
+                onClick={() => speakPhrase(phrase.translation)}
+                disabled={isSpeaking}
+              >
+                <Volume2 className={cn("w-4 h-4", isSpeaking && "animate-pulse")} />
+                {isSpeaking ? t('speech.playing', 'Playing...') : t('speech.listen', 'Listen')}
+              </Button>
+            </div>
+          )}
 
           {/* Microphone */}
           <div className="flex flex-col items-center gap-4 mb-6">
@@ -360,16 +423,16 @@ const Talk: React.FC = () => {
               <Mic2 className="w-8 h-8" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">{t('speech.title', 'Talk Practice')}</h2>
-              <p className="text-sm opacity-80">{t('speech.subtitle', 'Master pronunciation with audio exercises')}</p>
+              <h2 className="text-xl font-bold">{isKidsMode ? '🎤 Talk Practice!' : t('speech.title', 'Talk Practice')}</h2>
+              <p className="text-sm opacity-80">{isKidsMode ? 'Say it out loud!' : t('speech.subtitle', 'Master pronunciation with audio exercises')}</p>
             </div>
           </div>
         </div>
 
         {/* Categories */}
-        <h3 className="font-bold text-lg mb-4">{t('speech.categories', 'Practice Categories')}</h3>
+        <h3 className="font-bold text-lg mb-4">{isKidsMode ? '🌟 Pick a Topic!' : t('speech.categories', 'Practice Categories')}</h3>
         <div className="space-y-3">
-          {SPEECH_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
