@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import AppHeader from '@/components/AppHeader';
 import MonkeyMascot from '@/components/MonkeyMascot';
+import EditProfileModal from '@/components/EditProfileModal';
+import UpgradeModal from '@/components/UpgradeModal';
 import { Button } from '@/components/ui/button';
 import { 
   Settings, LogOut, Trophy, Flame, Zap, Star, 
@@ -17,14 +19,16 @@ const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { profile, progress, activeCourse, loading: progressLoading } = useUserProgress();
+  const { profile, progress, activeCourse, loading: progressLoading, refetch } = useUserProgress();
   const [signingOut, setSigningOut] = useState(false);
+  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const menuItems = [
-    { id: 'notifications', label: t('settings.practiceReminders'), icon: Bell },
-    { id: 'appearance', label: t('settings.preferences'), icon: Moon },
-    { id: 'privacy', label: t('settings.privacyPolicy'), icon: Shield },
-    { id: 'help', label: t('settings.helpCenter'), icon: HelpCircle },
+    { id: 'notifications', label: t('settings.practiceReminders'), icon: Bell, action: () => navigate('/settings') },
+    { id: 'appearance', label: t('settings.preferences'), icon: Moon, action: () => navigate('/settings') },
+    { id: 'privacy', label: t('settings.privacyPolicy'), icon: Shield, action: () => {} },
+    { id: 'help', label: t('settings.helpCenter'), icon: HelpCircle, action: () => {} },
   ];
 
   React.useEffect(() => {
@@ -77,7 +81,13 @@ const Profile: React.FC = () => {
                 <p className="text-sm text-primary">@{profile.username}</p>
               )}
             </div>
-            <Button variant="outline" size="sm">{t('profile.editProfile')}</Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setEditProfileOpen(true)}
+            >
+              {t('profile.editProfile')}
+            </Button>
           </div>
         </div>
 
@@ -92,7 +102,7 @@ const Profile: React.FC = () => {
           </div>
           <Button 
             className="w-full bg-white/20 hover:bg-white/30"
-            onClick={() => navigate('/settings')}
+            onClick={() => setUpgradeOpen(true)}
           >
             {t('subscription.upgradeToPremium')}
           </Button>
@@ -146,6 +156,7 @@ const Profile: React.FC = () => {
           {menuItems.map((item, i) => (
             <button
               key={item.id}
+              onClick={item.action}
               className={cn(
                 'w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors',
                 i < menuItems.length - 1 && 'border-b border-border'
@@ -169,6 +180,18 @@ const Profile: React.FC = () => {
           {signingOut ? t('settings.signingOut') : t('settings.signOut')}
         </Button>
       </main>
+
+      {/* Modals */}
+      <EditProfileModal
+        isOpen={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        profile={profile}
+        onSave={() => refetch()}
+      />
+      <UpgradeModal
+        isOpen={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+      />
 
       <BottomNavigation />
     </div>
