@@ -22,6 +22,10 @@ const defaultSettings: AppSettings = {
   avatar: 'monkey',
 };
 
+const kidsSettings: Partial<AppSettings> = {
+  avatar: 'cat',
+};
+
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
 
 export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -48,6 +52,15 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
     }
   }, [settings.darkMode]);
 
+  // Apply kids mode class to document
+  useEffect(() => {
+    if (settings.kidsMode) {
+      document.documentElement.classList.add('kids-mode');
+    } else {
+      document.documentElement.classList.remove('kids-mode');
+    }
+  }, [settings.kidsMode]);
+
   // Persist settings
   useEffect(() => {
     localStorage.setItem('doublango-settings', JSON.stringify(settings));
@@ -58,7 +71,12 @@ export const AppSettingsProvider: React.FC<{ children: ReactNode }> = ({ childre
   };
 
   const setKidsMode = (enabled: boolean) => {
-    setSettings(prev => ({ ...prev, kidsMode: enabled }));
+    setSettings(prev => ({
+      ...prev,
+      kidsMode: enabled,
+      // When enabling kids mode, apply kids-friendly defaults
+      ...(enabled ? kidsSettings : {}),
+    }));
   };
 
   const setAvatar = (avatar: AvatarType) => {

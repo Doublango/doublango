@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import logoImage from "@/assets/doublango-logo.png";
 
 interface BrandLogoProps {
   className?: string;
@@ -12,21 +13,22 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ className, compact = false }) => 
     <Link
       to="/home"
       className={cn(
-        "inline-flex items-center gap-2 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex items-center gap-1.5 rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className
       )}
       aria-label="DoubLango home"
     >
-      <span
-        aria-hidden
+      <img 
+        src={logoImage} 
+        alt="DoubLango" 
         className={cn(
-          "grid place-items-center rounded-xl gradient-primary text-primary-foreground shadow-sm",
-          compact ? "h-8 w-8 text-xs font-black" : "h-9 w-9 text-sm font-black"
+          "object-contain",
+          compact ? "h-8 w-8" : "h-10 w-10"
         )}
-      >
-        DL
-      </span>
-      {!compact && <span className="font-extrabold tracking-tight">DoubLango</span>}
+      />
+      {!compact && (
+        <span className="font-extrabold tracking-tight text-foreground">DoubLango</span>
+      )}
     </Link>
   );
 };

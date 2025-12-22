@@ -11,7 +11,7 @@ import Home from "./pages/Home";
 import Learn from "./pages/Learn";
 import Lesson from "./pages/Lesson";
 import Review from "./pages/Review";
-import Speech from "./pages/Speech";
+import Talk from "./pages/Talk";
 import TimedChallenge from "./pages/TimedChallenge";
 import PlacementTest from "./pages/PlacementTest";
 import Languages from "./pages/Languages";
@@ -37,7 +37,7 @@ const App = () => (
             <Route path="/lesson/:lessonId" element={<Lesson />} />
             <Route path="/review" element={<Review />} />
             <Route path="/review/:mode" element={<Review />} />
-            <Route path="/speech" element={<Speech />} />
+            <Route path="/talk" element={<Talk />} />
             <Route path="/timed-challenge" element={<TimedChallenge />} />
             <Route path="/placement-test" element={<PlacementTest />} />
             <Route path="/languages" element={<Languages />} />

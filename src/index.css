@@ -139,6 +139,55 @@
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 45 93% 58%;
   }
+
+  /* Kids Mode - Brighter, more playful colors */
+  .kids-mode {
+    --background: 50 100% 97%;
+    --foreground: 280 60% 25%;
+
+    --card: 50 80% 98%;
+    --card-foreground: 280 60% 25%;
+
+    --primary: 320 85% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 180 80% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --accent: 40 100% 55%;
+    --accent-foreground: 30 50% 15%;
+
+    --muted: 50 50% 92%;
+    --muted-foreground: 280 30% 40%;
+
+    --border: 50 40% 85%;
+    --ring: 320 85% 60%;
+
+    --banana: 50 100% 60%;
+    --success: 140 80% 50%;
+    --xp: 280 80% 60%;
+    --streak: 30 100% 55%;
+    --heart: 340 90% 60%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(320 85% 60%), hsl(280 80% 55%));
+    --gradient-banana: linear-gradient(135deg, hsl(50 100% 60%), hsl(40 100% 50%));
+  }
+
+  .kids-mode.dark {
+    --background: 280 40% 12%;
+    --foreground: 50 80% 95%;
+
+    --card: 280 35% 18%;
+    --card-foreground: 50 80% 95%;
+
+    --primary: 320 80% 55%;
+    --secondary: 180 75% 45%;
+
+    --muted: 280 30% 22%;
+    --muted-foreground: 50 50% 70%;
+
+    --border: 280 25% 25%;
+  }
 }
 
 @layer base {

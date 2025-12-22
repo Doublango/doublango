@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Volume2, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getTTSLanguageCode } from '@/lib/languageContent';
+import { speak } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
 
 interface AudioExerciseProps {
@@ -25,83 +25,31 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   const [playCount, setPlayCount] = useState(0);
   const [audioSupported, setAudioSupported] = useState(true);
 
-  // Check if speech synthesis is supported and load voices
   useEffect(() => {
     if (!('speechSynthesis' in window)) {
       setAudioSupported(false);
-      return;
     }
-    
-    // Force load voices
-    const loadVoices = () => {
-      window.speechSynthesis.getVoices();
-    };
-    
-    loadVoices();
-    window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    return () => {
-      window.speechSynthesis.onvoiceschanged = null;
-    };
   }, []);
 
   const speakText = useCallback(async () => {
     if (isPlaying || !audioSupported) return;
     
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    
     setIsPlaying(true);
     
-    // Wait for voices to be available
-    let voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
-      await new Promise<void>((resolve) => {
-        const checkVoices = () => {
-          voices = window.speechSynthesis.getVoices();
-          if (voices.length > 0) {
-            resolve();
-          } else {
-            setTimeout(checkVoices, 100);
-          }
-        };
-        setTimeout(checkVoices, 100);
+    try {
+      await speak(correctAnswer, languageCode, { 
+        rate: playCount === 0 ? 0.65 : 0.8 
       });
-    }
-    
-    const utterance = new SpeechSynthesisUtterance(correctAnswer);
-    
-    // Set language based on the course language
-    const langCode = getTTSLanguageCode(languageCode);
-    utterance.lang = langCode;
-    utterance.rate = playCount === 0 ? 0.65 : 0.8;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Try to find a voice for this language
-    const primary = langCode.split('-')[0].toLowerCase();
-    const matchingVoice = voices.find(v => v.lang.toLowerCase().startsWith(primary)) ||
-                          voices.find(v => v.lang.toLowerCase().includes(primary));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    }
-    
-    utterance.onend = () => {
+    } catch (error) {
+      console.error('Speech error:', error);
+    } finally {
       setIsPlaying(false);
       setHasPlayed(true);
       setPlayCount(prev => prev + 1);
-    };
-    
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event);
-      setIsPlaying(false);
-      setHasPlayed(true);
-    };
-    
-    window.speechSynthesis.speak(utterance);
+    }
   }, [correctAnswer, languageCode, isPlaying, playCount, audioSupported]);
 
-  // Auto-play on mount with delay for voices to load
+  // Auto-play on mount
   useEffect(() => {
     if (!audioSupported) return;
     
@@ -132,7 +80,6 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Audio Play Button */}
       <div className="flex flex-col items-center gap-4">
         <button
           onClick={speakText}
@@ -166,7 +113,6 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
         )}
       </div>
 
-      {/* Answer Input */}
       <div className="space-y-4">
         <input
           type="text"
@@ -186,7 +132,6 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
           }}
         />
         
-        {/* Show correct answer as hint after 2 plays */}
         {playCount >= 2 && !disabled && (
           <div className="text-center">
             <p className="text-xs text-muted-foreground mb-1">💡 Hint: The answer is:</p>
@@ -194,7 +139,6 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
           </div>
         )}
         
-        {/* Helpful hint */}
         {hasPlayed && playCount < 2 && !disabled && (
           <p className="text-sm text-muted-foreground text-center">
             💡 Type exactly what you hear
