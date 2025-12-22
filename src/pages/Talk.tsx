@@ -144,7 +144,7 @@ const Talk: React.FC = () => {
   }, [user, authLoading, navigate]);
 
   // Get translated phrase from language content
-  const getTranslatedPhrase = useCallback((phraseKey: string): string => {
+  const getTranslatedPhrase = useCallback((phraseKey: string, englishFallback: string): string => {
     if (languageContent && languageContent[phraseKey]) {
       return languageContent[phraseKey];
     }
@@ -152,7 +152,8 @@ const Talk: React.FC = () => {
     if (LANGUAGE_CONTENT.es[phraseKey]) {
       return LANGUAGE_CONTENT.es[phraseKey];
     }
-    return '';
+    // Last resort: never show blank
+    return englishFallback;
   }, [languageContent]);
 
   const getCurrentCategory = useCallback(() => {
@@ -166,14 +167,9 @@ const Talk: React.FC = () => {
     
     const phraseData = category.phrases[currentPhraseIndex];
     if (!phraseData) return null;
-    
-    const translatedPhrase = getTranslatedPhrase(phraseData.key);
-    
-    // Skip if no translation available
-    if (!translatedPhrase) {
-      return null;
-    }
-    
+
+    const translatedPhrase = getTranslatedPhrase(phraseData.key, phraseData.en);
+
     return {
       english: phraseData.en,
       translation: translatedPhrase,
@@ -298,19 +294,6 @@ const Talk: React.FC = () => {
     const phrase = getCurrentPhrase();
     const progressPercent = ((currentPhraseIndex + 1) / (category?.phrases.length || 1)) * 100;
 
-    // Handle case where phrase couldn't be translated
-    if (!phrase && category && currentPhraseIndex < category.phrases.length - 1) {
-      // Skip to next phrase automatically
-      setTimeout(() => {
-        setCurrentPhraseIndex(prev => prev + 1);
-      }, 0);
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <MonkeyMascot mood="thinking" size="lg" animate />
-        </div>
-      );
-    }
-
     return (
       <div className="min-h-screen bg-background pb-24">
         <AppHeader
@@ -337,9 +320,9 @@ const Talk: React.FC = () => {
               <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
               <p className="text-2xl font-bold mb-2">{phrase.translation}</p>
               <p className="text-sm text-muted-foreground mb-4">({phrase.english})</p>
-              
-              <Button 
-                variant="outline" 
+
+              <Button
+                variant="outline"
                 className="gap-2"
                 onClick={() => speakPhrase(phrase.translation)}
                 disabled={isSpeaking}
@@ -377,7 +360,7 @@ const Talk: React.FC = () => {
             )}>
               <p className="text-sm text-muted-foreground mb-1">{t('speech.youSaid', 'You said:')}</p>
               <p className="text-lg font-medium mb-2">"{transcript}"</p>
-              
+
               {accuracy !== null && (
                 <div className="flex items-center gap-2">
                   <Progress value={accuracy} className="flex-1 h-2" />
@@ -394,7 +377,7 @@ const Talk: React.FC = () => {
 
           {/* Next Button */}
           {accuracy !== null && (
-            <Button 
+            <Button
               onClick={nextPhrase}
               className="w-full h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"
             >
