@@ -8,12 +8,13 @@ import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AvatarMascot from '@/components/AvatarMascot';
 import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
+import VoicePickerModal from '@/components/VoicePickerModal';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { 
   ArrowLeft, User, Bell, Globe, Crown, LogOut, 
   ChevronRight, Shield, HelpCircle, Info, Volume2, Check, 
-  Moon, Sun, Baby, Sparkles
+  Moon, Sun, Baby, Sparkles, Mic
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +33,7 @@ const Settings: React.FC = () => {
   const [signingOut, setSigningOut] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
 
   const currentUILanguage = UI_LANGUAGES.find(l => l.code === i18n.language) || UI_LANGUAGES[0];
 
@@ -102,6 +104,7 @@ const Settings: React.FC = () => {
       items: [
         { id: 'darkMode', label: settings.darkMode ? 'Dark Mode' : 'Light Mode', icon: settings.darkMode ? Moon : Sun, toggle: true, value: settings.darkMode, onChange: handleDarkModeToggle },
         { id: 'kidsMode', label: 'Kids Mode', icon: Baby, toggle: true, value: settings.kidsMode, onChange: handleKidsModeToggle, badge: settings.kidsMode ? '👶' : undefined },
+        { id: 'voice', label: t('settings.voiceSettings', 'Voice Settings'), icon: Mic, action: () => setShowVoiceModal(true), value: settings.ttsEngine === 'proxy' ? 'Cloud' : 'Browser' },
         { id: 'notifications', label: t('settings.practiceReminders', 'Practice Reminders'), icon: Bell, toggle: true, value: notifications, onChange: handleNotificationToggle },
         { id: 'sounds', label: t('settings.soundEffects', 'Sound Effects'), icon: Volume2, toggle: true, value: soundEffects, onChange: setSoundEffects },
         { id: 'language', label: t('settings.appLanguage', 'App Language'), icon: Globe, action: () => setShowLanguageModal(true), value: currentUILanguage.nativeName },
@@ -200,6 +203,9 @@ const Settings: React.FC = () => {
 
       {/* Upgrade Modal */}
       <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
+
+      {/* Voice Picker Modal */}
+      <VoicePickerModal isOpen={showVoiceModal} onClose={() => setShowVoiceModal(false)} />
 
       {/* Language Modal */}
       {showLanguageModal && (
