@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, BookOpen, RotateCcw, Mic2, User } from 'lucide-react';
+import { Home, BookOpen, RotateCcw, MessageCircle, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
 
@@ -13,7 +13,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/home', icon: Home, labelKey: 'nav.home' },
   { path: '/learn', icon: BookOpen, labelKey: 'nav.learn' },
-  { path: '/speech', icon: Mic2, labelKey: 'nav.speech' },
+  { path: '/talk', icon: MessageCircle, labelKey: 'nav.talk' },
   { path: '/review', icon: RotateCcw, labelKey: 'nav.review' },
   { path: '/profile', icon: User, labelKey: 'nav.profile' },
 ];

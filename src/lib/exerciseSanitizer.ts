@@ -1,9 +1,10 @@
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { LANGUAGE_CONTENT } from "@/lib/languageContent";
 
 type Exercise = Database["public"]["Tables"]["exercises"]["Row"];
 type LanguageCode = Database["public"]["Enums"]["language_code"];
 
+// Comprehensive phrase pool with English keys and translations
 const ENGLISH_PHRASE_POOL: Array<{ key: string; en: string }> = [
   { key: "hello", en: "Hello" },
   { key: "goodbye", en: "Goodbye" },
@@ -27,33 +28,64 @@ const ENGLISH_PHRASE_POOL: Array<{ key: string; en: string }> = [
   { key: "i_dont_understand", en: "I don't understand" },
 ];
 
+// Detect placeholder content that should be replaced
 const isPlaceholderString = (value: unknown): boolean => {
   if (typeof value !== "string") return false;
   const v = value.trim().toLowerCase();
   if (!v) return true;
-  return (
+  
+  // Match explicit placeholders
+  if (
     v === "correct_option" ||
     v === "translated_phrase" ||
     v === "correct sentence" ||
     v === "the correct sentence" ||
-    v.startsWith("wrong_") ||
-    /^word\d+$/.test(v)
-  );
+    v.startsWith("wrong_")
+  ) return true;
+  
+  // Match "word1", "word2", "word 1", "word 2" patterns
+  if (/^word\s?\d+$/i.test(v)) return true;
+  
+  // Match "translation1", "translation 1", "translation2" patterns  
+  if (/^translation\s?\d+$/i.test(v)) return true;
+  
+  // Match "option1", "option 1" patterns
+  if (/^option\s?\d+$/i.test(v)) return true;
+  
+  return false;
 };
 
 const optionsContainPlaceholders = (options: unknown): boolean => {
   if (!options) return true;
 
   if (Array.isArray(options)) {
-    return options.some((o) => isPlaceholderString(o) || isPlaceholderString((o as any)?.text));
+    // Check if any option is a placeholder
+    const hasPlaceholder = options.some((o) => {
+      if (typeof o === 'string') return isPlaceholderString(o);
+      if (typeof o === 'object' && o !== null && 'text' in o) {
+        return isPlaceholderString((o as { text: string }).text);
+      }
+      return false;
+    });
+    // Also return true if array is empty or has fewer than 2 items
+    if (options.length < 2) return true;
+    return hasPlaceholder;
   }
 
   if (typeof options === "object") {
-    const anyOpt = options as any;
-    if (Array.isArray(anyOpt.words)) return anyOpt.words.some((w: any) => isPlaceholderString(w));
+    const anyOpt = options as Record<string, unknown>;
+    
+    // Check words array
+    if (Array.isArray(anyOpt.words)) {
+      if (anyOpt.words.length === 0) return true;
+      return anyOpt.words.some((w) => isPlaceholderString(w));
+    }
+    
+    // Check pairs array
     if (Array.isArray(anyOpt.pairs)) {
-      return anyOpt.pairs.some(
-        (p: any) => isPlaceholderString(p?.left) || isPlaceholderString(p?.right)
+      if (anyOpt.pairs.length === 0) return true;
+      return anyOpt.pairs.some((p: { left?: string; right?: string }) => 
+        isPlaceholderString(p?.left) || isPlaceholderString(p?.right)
       );
     }
   }
@@ -90,7 +122,7 @@ const seededShuffle = <T,>(arr: T[], seed: number): T[] => {
 };
 
 const getPhrasePairs = (languageCode: LanguageCode) => {
-  const dict = (LANGUAGE_CONTENT as any)[languageCode] as Record<string, string> | undefined;
+  const dict = (LANGUAGE_CONTENT as Record<string, Record<string, string>>)[languageCode] as Record<string, string> | undefined;
 
   return ENGLISH_PHRASE_POOL.map(({ key, en }) => {
     const target = dict?.[key] || en;
@@ -133,10 +165,9 @@ export const sanitizeLessonExercises = (
 
     const picked = pairs[seed % pairs.length];
 
-    // default prompt/correct
     let question = ex.question;
     let correct = ex.correct_answer;
-    let options: any = ex.options;
+    let options: Json = ex.options;
 
     switch (ex.exercise_type) {
       case "multiple_choice":
@@ -186,7 +217,6 @@ export const sanitizeLessonExercises = (
         break;
       }
       default: {
-        // fallback: keep type but ensure non-empty content
         question = ex.question?.trim() ? ex.question : `Translate: "${picked.en}"`;
         correct = isPlaceholderString(ex.correct_answer) ? picked.target : ex.correct_answer;
         options = ex.options;

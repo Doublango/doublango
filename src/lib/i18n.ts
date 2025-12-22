@@ -9,6 +9,7 @@ const resources = {
       nav: {
         home: 'Home',
         learn: 'Learn',
+        talk: 'Talk',
         review: 'Review',
         languages: 'Languages',
         profile: 'Profile',
@@ -180,6 +181,7 @@ const resources = {
       nav: {
         home: 'Inicio',
         learn: 'Aprender',
+        talk: 'Hablar',
         review: 'Repasar',
         languages: 'Idiomas',
         profile: 'Perfil',
@@ -340,6 +342,7 @@ const resources = {
       nav: {
         home: 'Accueil',
         learn: 'Apprendre',
+        talk: 'Parler',
         review: 'Réviser',
         languages: 'Langues',
         profile: 'Profil',
@@ -413,6 +416,7 @@ const resources = {
       nav: {
         home: 'Start',
         learn: 'Lernen',
+        talk: 'Sprechen',
         review: 'Wiederholen',
         languages: 'Sprachen',
         profile: 'Profil',
@@ -459,6 +463,7 @@ const resources = {
       nav: {
         home: '首页',
         learn: '学习',
+        talk: '口语',
         review: '复习',
         languages: '语言',
         profile: '个人资料',
@@ -502,6 +507,7 @@ const resources = {
       nav: {
         home: 'الرئيسية',
         learn: 'تعلم',
+        talk: 'تحدث',
         review: 'مراجعة',
         languages: 'اللغات',
         profile: 'الملف الشخصي',
@@ -545,6 +551,7 @@ const resources = {
       nav: {
         home: 'होम',
         learn: 'सीखें',
+        talk: 'बोलें',
         review: 'दोहराएं',
         languages: 'भाषाएं',
         profile: 'प्रोफाइल',

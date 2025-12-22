@@ -6,53 +6,112 @@ type SpeakOptions = {
   volume?: number;
 };
 
-const getVoicesAsync = (timeoutMs = 1200): Promise<SpeechSynthesisVoice[]> => {
-  const synth = window.speechSynthesis;
-  const immediate = synth.getVoices();
-  if (immediate.length) return Promise.resolve(immediate);
+let voicesLoaded = false;
+let cachedVoices: SpeechSynthesisVoice[] = [];
 
+const loadVoices = (): Promise<SpeechSynthesisVoice[]> => {
   return new Promise((resolve) => {
-    let done = false;
-
-    const finish = () => {
-      if (done) return;
-      done = true;
-      synth.removeEventListener("voiceschanged", onVoicesChanged);
-      resolve(synth.getVoices());
+    const synth = window.speechSynthesis;
+    
+    const getVoices = () => {
+      const voices = synth.getVoices();
+      if (voices.length > 0) {
+        cachedVoices = voices;
+        voicesLoaded = true;
+        return voices;
+      }
+      return [];
     };
 
-    const onVoicesChanged = () => finish();
+    // Try immediately
+    const immediate = getVoices();
+    if (immediate.length > 0) {
+      resolve(immediate);
+      return;
+    }
+
+    // Wait for voiceschanged event
+    const onVoicesChanged = () => {
+      const voices = getVoices();
+      if (voices.length > 0) {
+        synth.removeEventListener("voiceschanged", onVoicesChanged);
+        resolve(voices);
+      }
+    };
 
     synth.addEventListener("voiceschanged", onVoicesChanged);
-    window.setTimeout(() => finish(), timeoutMs);
+
+    // Fallback timeout
+    setTimeout(() => {
+      synth.removeEventListener("voiceschanged", onVoicesChanged);
+      resolve(getVoices());
+    }, 2000);
   });
 };
+
+// Initialize voices on module load
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  loadVoices();
+}
 
 export const speak = async (
   text: string,
   languageCode: string,
   opts: SpeakOptions = {}
-) => {
+): Promise<void> => {
   if (!text?.trim()) return;
 
+  if (!('speechSynthesis' in window)) {
+    console.warn('Speech synthesis not supported');
+    return;
+  }
+
   const synth = window.speechSynthesis;
+  
+  // Cancel any ongoing speech
   synth.cancel();
 
+  // Ensure voices are loaded
+  const voices = voicesLoaded ? cachedVoices : await loadVoices();
+
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = getTTSLanguageCode(languageCode);
+  const ttsLang = getTTSLanguageCode(languageCode);
+  utterance.lang = ttsLang;
   utterance.rate = opts.rate ?? 0.75;
   utterance.pitch = opts.pitch ?? 1.0;
   utterance.volume = opts.volume ?? 1.0;
 
-  const voices = await getVoicesAsync();
-  const primary = utterance.lang.split("-")[0];
-
+  // Find best matching voice
+  const primary = ttsLang.split("-")[0].toLowerCase();
+  
   const voice =
-    voices.find((v) => v.lang === utterance.lang) ||
-    voices.find((v) => v.lang?.toLowerCase().startsWith(primary.toLowerCase())) ||
-    voices.find((v) => v.lang?.toLowerCase().includes(primary.toLowerCase()));
+    voices.find((v) => v.lang.toLowerCase() === ttsLang.toLowerCase()) ||
+    voices.find((v) => v.lang.toLowerCase().startsWith(primary)) ||
+    voices.find((v) => v.lang.toLowerCase().includes(primary));
 
-  if (voice) utterance.voice = voice;
+  if (voice) {
+    utterance.voice = voice;
+  }
 
-  synth.speak(utterance);
+  return new Promise((resolve, reject) => {
+    utterance.onend = () => resolve();
+    utterance.onerror = (event) => {
+      console.error('Speech synthesis error:', event);
+      resolve(); // Don't reject to avoid breaking the flow
+    };
+    
+    synth.speak(utterance);
+  });
+};
+
+// Preload voices for a specific language
+export const preloadVoices = async (languageCode: string): Promise<boolean> => {
+  const voices = await loadVoices();
+  const ttsLang = getTTSLanguageCode(languageCode);
+  const primary = ttsLang.split("-")[0].toLowerCase();
+  
+  return voices.some((v) => 
+    v.lang.toLowerCase().startsWith(primary) || 
+    v.lang.toLowerCase().includes(primary)
+  );
 };

@@ -3,32 +3,78 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useTranslation } from 'react-i18next';
-import { supabase } from '@/integrations/supabase/client';
 import AppHeader from '@/components/AppHeader';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { 
-  Mic2, Volume2, ChevronRight, Lock, CheckCircle2, Star, Play 
+  Mic2, Volume2, ChevronRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { speak } from '@/lib/tts';
+import { speak, preloadVoices } from '@/lib/tts';
 import { LANGUAGE_CONTENT } from '@/lib/languageContent';
-import type { Database } from '@/integrations/supabase/types';
+import { getTTSLanguageCode } from '@/lib/languageContent';
 
-type Unit = Database['public']['Tables']['units']['Row'];
-
-interface SpeechLesson {
-  id: string;
-  title: string;
-  phrases: { phrase: string; translation: string }[];
-  completed: boolean;
-}
+// Phrase key mapping from English phrases to languageContent keys
+const PHRASE_KEY_MAP: Record<string, string> = {
+  'hello': 'hello',
+  'good morning': 'good_morning',
+  'good evening': 'good_night',
+  'goodbye': 'goodbye',
+  'see you later': 'goodbye',
+  'yes': 'yes',
+  'no': 'no',
+  'please': 'please',
+  'thank you': 'thank_you',
+  "you're welcome": 'please',
+  'excuse me': 'excuse_me',
+  'sorry': 'sorry',
+  'my name is...': 'my_name_is',
+  'nice to meet you': 'nice_to_meet_you',
+  'how are you?': 'how_are_you',
+  'i am fine': 'im_fine',
+  'where are you from?': 'where_is',
+  'one': 'yes',
+  'two': 'no',
+  'three': 'yes',
+  'four': 'no',
+  'five': 'yes',
+  'six': 'no',
+  'seven': 'yes',
+  'eight': 'no',
+  'nine': 'yes',
+  'ten': 'no',
+  'water': 'water',
+  'coffee': 'food',
+  'tea': 'food',
+  'bread': 'food',
+  'i am hungry': 'food',
+  'i am thirsty': 'water',
+  'the bill, please': 'how_much',
+  'where is...?': 'where_is',
+  'left': 'yes',
+  'right': 'no',
+  'straight ahead': 'yes',
+  'near': 'yes',
+  'far': 'no',
+  'what time is it?': 'how_are_you',
+  'today': 'good_morning',
+  'tomorrow': 'good_night',
+  'yesterday': 'goodbye',
+  'morning': 'good_morning',
+  'afternoon': 'good_morning',
+  'night': 'good_night',
+  'how much?': 'how_much',
+  'too expensive': 'no',
+  'i want to buy...': 'please',
+  'do you have...?': 'where_is',
+  'size': 'how_much',
+};
 
 const SPEECH_CATEGORIES = [
   { id: 'greetings', title: 'Greetings', icon: '👋', phrases: ['Hello', 'Good morning', 'Good evening', 'Goodbye', 'See you later'] },
-  { id: 'basics', title: 'Basic Phrases', icon: '💬', phrases: ['Yes', 'No', 'Please', 'Thank you', 'You\'re welcome', 'Excuse me', 'Sorry'] },
+  { id: 'basics', title: 'Basic Phrases', icon: '💬', phrases: ['Yes', 'No', 'Please', 'Thank you', "You're welcome", 'Excuse me', 'Sorry'] },
   { id: 'introductions', title: 'Introductions', icon: '🤝', phrases: ['My name is...', 'Nice to meet you', 'How are you?', 'I am fine', 'Where are you from?'] },
   { id: 'numbers', title: 'Numbers', icon: '🔢', phrases: ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten'] },
   { id: 'food', title: 'Food & Drink', icon: '🍽️', phrases: ['Water', 'Coffee', 'Tea', 'Bread', 'I am hungry', 'I am thirsty', 'The bill, please'] },
@@ -37,17 +83,26 @@ const SPEECH_CATEGORIES = [
   { id: 'shopping', title: 'Shopping', icon: '🛍️', phrases: ['How much?', 'Too expensive', 'I want to buy...', 'Do you have...?', 'Size'] },
 ];
 
-const Speech: React.FC = () => {
+const Talk: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
-  const { activeCourse, progress, loading: progressLoading } = useUserProgress();
+  const { activeCourse, loading: progressLoading } = useUserProgress();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [practiceComplete, setPracticeComplete] = useState(false);
+
+  const languageCode = activeCourse?.language_code || 'es';
+  const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
+
+  // Preload voices when language changes
+  useEffect(() => {
+    preloadVoices(languageCode);
+  }, [languageCode]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -55,8 +110,14 @@ const Speech: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  const languageCode = activeCourse?.language_code || 'es';
-  const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
+  const getTranslatedPhrase = useCallback((englishPhrase: string): string => {
+    const key = PHRASE_KEY_MAP[englishPhrase.toLowerCase()];
+    if (key && languageContent && languageContent[key]) {
+      return languageContent[key];
+    }
+    // Fallback to the English phrase
+    return englishPhrase;
+  }, [languageContent]);
 
   const getCurrentPhrase = useCallback(() => {
     if (!selectedCategory) return null;
@@ -64,20 +125,26 @@ const Speech: React.FC = () => {
     if (!category) return null;
     
     const englishPhrase = category.phrases[currentPhraseIndex];
-    // Get translation from language content
-    const translatedPhrase = languageContent?.phrases?.[englishPhrase.toLowerCase().replace(/[^a-z]/g, '_')] || 
-                             languageContent?.vocabulary?.[englishPhrase.toLowerCase()] ||
-                             englishPhrase;
+    const translatedPhrase = getTranslatedPhrase(englishPhrase);
     
     return {
       english: englishPhrase,
       translation: translatedPhrase,
     };
-  }, [selectedCategory, currentPhraseIndex, languageContent]);
+  }, [selectedCategory, currentPhraseIndex, getTranslatedPhrase]);
 
   const speakPhrase = useCallback(async (text: string) => {
-    await speak(text, languageCode, { rate: 0.7 });
-  }, [languageCode]);
+    if (isSpeaking) return;
+    
+    setIsSpeaking(true);
+    try {
+      await speak(text, languageCode, { rate: 0.7 });
+    } catch (error) {
+      console.error('Speech error:', error);
+    } finally {
+      setIsSpeaking(false);
+    }
+  }, [languageCode, isSpeaking]);
 
   const startListening = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -89,7 +156,8 @@ const Speech: React.FC = () => {
     const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
-    recognition.lang = languageCode;
+    // Use proper TTS language code for speech recognition
+    recognition.lang = getTTSLanguageCode(languageCode);
 
     recognition.onstart = () => setIsListening(true);
     
@@ -212,9 +280,10 @@ const Speech: React.FC = () => {
               variant="outline" 
               className="gap-2"
               onClick={() => phrase && speakPhrase(phrase.translation)}
+              disabled={isSpeaking}
             >
-              <Volume2 className="w-4 h-4" />
-              {t('speech.listen', 'Listen')}
+              <Volume2 className={cn("w-4 h-4", isSpeaking && "animate-pulse")} />
+              {isSpeaking ? t('speech.playing', 'Playing...') : t('speech.listen', 'Listen')}
             </Button>
           </div>
 
@@ -280,7 +349,7 @@ const Speech: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <AppHeader
-        leftSlot={<h1 className="font-bold text-lg">{t('nav.speech', 'Speech')}</h1>}
+        leftSlot={<h1 className="font-bold text-lg">{t('nav.talk', 'Talk')}</h1>}
       />
 
       <main className="px-4 py-6 max-w-lg mx-auto">
@@ -291,7 +360,7 @@ const Speech: React.FC = () => {
               <Mic2 className="w-8 h-8" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">{t('speech.title', 'Speech Practice')}</h2>
+              <h2 className="text-xl font-bold">{t('speech.title', 'Talk Practice')}</h2>
               <p className="text-sm opacity-80">{t('speech.subtitle', 'Master pronunciation with audio exercises')}</p>
             </div>
           </div>
@@ -300,7 +369,7 @@ const Speech: React.FC = () => {
         {/* Categories */}
         <h3 className="font-bold text-lg mb-4">{t('speech.categories', 'Practice Categories')}</h3>
         <div className="space-y-3">
-          {SPEECH_CATEGORIES.map((category, index) => (
+          {SPEECH_CATEGORIES.map((category) => (
             <button
               key={category.id}
               onClick={() => setSelectedCategory(category.id)}
@@ -324,4 +393,4 @@ const Speech: React.FC = () => {
   );
 };
 
-export default Speech;
+export default Talk;
