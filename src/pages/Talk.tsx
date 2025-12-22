@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
@@ -14,15 +14,13 @@ import { Mic2, Volume2, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
 import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
-import { 
-  ADULT_PHRASE_LIBRARY, 
-  KIDS_PHRASE_LIBRARY, 
+import {
+  ADULT_PHRASE_LIBRARY,
+  KIDS_PHRASE_LIBRARY,
   EXTENDED_TRANSLATIONS,
   DIFFICULTY_LEVELS,
-  type DifficultyLevel,
-  type CategoryData,
-  type PhraseData
 } from '@/lib/talkPhrases';
+import type { DifficultyLevel, CategoryData, PhraseData } from '@/lib/talkPhrases';
 
 const Talk: React.FC = () => {
   const navigate = useNavigate();
@@ -51,17 +49,17 @@ const Talk: React.FC = () => {
   // Filter categories based on difficulty level
   const currentDifficulty = DIFFICULTY_LEVELS[difficultyLevel]?.value || 'beginner';
   
-  const getFilteredCategories = useCallback((): CategoryData[] => {
+  const categories = useMemo((): CategoryData[] => {
     const levelOrder: DifficultyLevel[] = ['beginner', 'basic', 'intermediate', 'advanced'];
     const maxLevelIndex = levelOrder.indexOf(currentDifficulty);
-    
-    return phraseLibrary.map(cat => ({
-      ...cat,
-      phrases: cat.phrases.filter(p => levelOrder.indexOf(p.level) <= maxLevelIndex)
-    })).filter(cat => cat.phrases.length > 0);
-  }, [phraseLibrary, currentDifficulty]);
 
-  const categories = getFilteredCategories();
+    return phraseLibrary
+      .map((cat) => ({
+        ...cat,
+        phrases: cat.phrases.filter((p) => levelOrder.indexOf(p.level) <= maxLevelIndex),
+      }))
+      .filter((cat) => cat.phrases.length > 0);
+  }, [phraseLibrary, currentDifficulty]);
 
   // Preload voices when language changes
   useEffect(() => {
