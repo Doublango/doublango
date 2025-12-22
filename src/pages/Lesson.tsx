@@ -13,7 +13,8 @@ import SpeechExercise from '@/components/SpeechExercise';
 import AudioExercise from '@/components/AudioExercise';
 import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getTTSLanguageCode } from '@/lib/languageContent';
+import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
+import { speak } from '@/lib/tts';
 import type { Database } from '@/integrations/supabase/types';
 
 type Exercise = Database['public']['Tables']['exercises']['Row'];
@@ -114,8 +115,10 @@ const LessonPage: React.FC = () => {
         ]);
 
         if (lessonRes.data) setLesson(lessonRes.data);
-        if (exercisesRes.data) setExercises(exercisesRes.data);
-      } catch (error) {
+        if (exercisesRes.data) {
+          const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
+          setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
+        }
         console.error('Error loading lesson:', error);
         toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
       } finally {
@@ -312,25 +315,8 @@ const LessonPage: React.FC = () => {
   };
 
   const speakText = useCallback((text: string) => {
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
     const langCode = activeCourse?.language_code || 'es';
-    
-    utterance.lang = getTTSLanguageCode(langCode);
-    utterance.rate = 0.75;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Try to find a matching voice
-    const voices = speechSynthesis.getVoices();
-    const matchingVoice = voices.find(v => v.lang.startsWith(langCode));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    }
-    
-    speechSynthesis.speak(utterance);
+    void speak(text, langCode, { rate: 0.75 });
   }, [activeCourse?.language_code]);
 
   const handleSpeechResult = (correct: boolean, transcript: string, accuracy: number) => {
@@ -512,12 +498,14 @@ const LessonPage: React.FC = () => {
               {(currentExercise.exercise_type === 'translation' || 
                 currentExercise.exercise_type === 'fill_blank' ||
                 currentExercise.exercise_type === 'type_what_you_hear') && (() => {
-                // Check if options include word bank hints
-                const wordHints = currentExercise.options 
+                const providedHints = currentExercise.options
                   ? normalizeOptions(currentExercise.options).filter(o => o.trim())
                   : [];
+                const wordHints = (providedHints.length > 0
+                  ? providedHints
+                  : generateWordBankWords(currentExercise.correct_answer, null)
+                ).filter(w => w.trim());
                 const hasWordBank = wordHints.length > 0;
-                
                 return (
                   <div className="space-y-4">
                     {/* Answer input */}
