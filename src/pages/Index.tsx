@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import AvatarMascot from '@/components/AvatarMascot';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 
@@ -25,7 +25,7 @@ const Index: React.FC = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -34,7 +34,7 @@ const Index: React.FC = () => {
   if (user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -42,10 +42,10 @@ const Index: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-banana/20 to-background flex flex-col items-center justify-center p-6">
       <div className="max-w-md w-full text-center space-y-8 animate-fade-in">
-        <MonkeyMascot mood="celebrating" size="xl" className="mx-auto" />
+        <AvatarMascot mood="celebrating" size="xl" className="mx-auto" animate />
         
         <div className="space-y-3">
-          <h1 className="text-4xl font-black text-gradient-banana">LangoMonkey</h1>
+          <h1 className="text-4xl font-black text-gradient-banana">DoubLango</h1>
           <p className="text-xl text-muted-foreground">
             Learn a new language in just 5 minutes a day! 🍌
           </p>

@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import { useAppSettings, AvatarType } from '@/contexts/AppSettingsContext';
+import AvatarMascot from '@/components/AvatarMascot';
+import AvatarSelector from '@/components/AvatarSelector';
 import { LANGUAGES, DAILY_GOALS, MOTIVATIONS } from '@/lib/languages';
-import { Check, ChevronRight, Bell, BellOff } from 'lucide-react';
+import { Check, ChevronRight, Bell, BellOff, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -20,6 +22,7 @@ const Onboarding: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { settings, setAvatar } = useAppSettings();
 
   const requestNotifications = async () => {
     if ('Notification' in window) {
@@ -29,11 +32,11 @@ const Onboarding: React.FC = () => {
         toast({ title: '🍌 Notifications enabled!', description: "I'll remind you to practice!" });
       }
     }
-    setStep(5);
+    setStep(6);
   };
 
   const skipNotifications = () => {
-    setStep(5);
+    setStep(6);
   };
 
   const handleStartPlacementTest = async () => {
@@ -108,7 +111,7 @@ const Onboarding: React.FC = () => {
     }
   };
 
-  const totalSteps = 5;
+  const totalSteps = 6;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col p-6">
@@ -119,11 +122,28 @@ const Onboarding: React.FC = () => {
       </div>
 
       <div className="flex-1 flex flex-col max-w-md mx-auto w-full">
-        {/* Step 1: Choose Language */}
+        {/* Step 1: Choose Avatar */}
         {step === 1 && (
           <div className="animate-fade-in space-y-6">
             <div className="text-center">
-              <MonkeyMascot mood="excited" size="lg" className="mx-auto mb-4" />
+              <div className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-banana/30 to-primary/20 flex items-center justify-center">
+                <Sparkles className="w-12 h-12 text-banana" />
+              </div>
+              <h1 className="text-2xl font-bold">Choose your learning buddy!</h1>
+              <p className="text-muted-foreground">Pick a character to guide your journey! 🚀</p>
+            </div>
+            <AvatarSelector 
+              selected={settings.avatar}
+              onSelect={setAvatar}
+            />
+          </div>
+        )}
+
+        {/* Step 2: Choose Language */}
+        {step === 2 && (
+          <div className="animate-fade-in space-y-6">
+            <div className="text-center">
+              <AvatarMascot mood="excited" size="lg" className="mx-auto mb-4" />
               <h1 className="text-2xl font-bold">What do you want to learn?</h1>
               <p className="text-muted-foreground">Pick a language to get started! 🍌</p>
             </div>
@@ -146,11 +166,11 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Step 2: Daily Goal */}
-        {step === 2 && (
+        {/* Step 3: Daily Goal */}
+        {step === 3 && (
           <div className="animate-fade-in space-y-6">
             <div className="text-center">
-              <MonkeyMascot mood="thinking" size="lg" className="mx-auto mb-4" />
+              <AvatarMascot mood="thinking" size="lg" className="mx-auto mb-4" />
               <h1 className="text-2xl font-bold">Set your daily goal</h1>
               <p className="text-muted-foreground">How many bananas can you earn? 🍌</p>
             </div>
@@ -176,13 +196,13 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Step 3: Motivation */}
-        {step === 3 && (
+        {/* Step 4: Motivation */}
+        {step === 4 && (
           <div className="animate-fade-in space-y-6">
             <div className="text-center">
-              <MonkeyMascot mood="happy" size="lg" className="mx-auto mb-4" />
+              <AvatarMascot mood="happy" size="lg" className="mx-auto mb-4" />
               <h1 className="text-2xl font-bold">Why are you learning?</h1>
-              <p className="text-muted-foreground">This helps our monkey guide you better! 🐵</p>
+              <p className="text-muted-foreground">This helps us guide you better! 🐵</p>
             </div>
             <div className="grid grid-cols-2 gap-3">
               {MOTIVATIONS.map((m) => (
@@ -202,11 +222,11 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Step 4: Notifications */}
-        {step === 4 && (
+        {/* Step 5: Notifications */}
+        {step === 5 && (
           <div className="animate-fade-in space-y-6 flex-1 flex flex-col justify-center">
             <div className="text-center">
-              <MonkeyMascot mood="excited" size="xl" className="mx-auto mb-6" />
+              <AvatarMascot mood="excited" size="xl" className="mx-auto mb-6" animate />
               <h1 className="text-2xl font-bold mb-2">Stay on track!</h1>
               <p className="text-muted-foreground mb-8">
                 Let me remind you to practice daily! A little learning every day goes a long way. 🍌
@@ -231,11 +251,11 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Step 5: Placement Test Choice */}
-        {step === 5 && (
+        {/* Step 6: Placement Test Choice */}
+        {step === 6 && (
           <div className="animate-fade-in space-y-6 flex-1 flex flex-col justify-center">
             <div className="text-center">
-              <MonkeyMascot mood="thinking" size="xl" className="mx-auto mb-6" />
+              <AvatarMascot mood="thinking" size="xl" className="mx-auto mb-6" animate />
               <h1 className="text-2xl font-bold mb-2">Find your level!</h1>
               <p className="text-muted-foreground mb-2">
                 Take a quick placement test to find the best starting point for you.
@@ -289,12 +309,12 @@ const Onboarding: React.FC = () => {
         )}
       </div>
 
-      {/* Navigation for steps 1-3 */}
-      {step < 4 && (
+      {/* Navigation for steps 1-4 */}
+      {step < 5 && (
         <div className="pt-6">
           <Button
             onClick={() => setStep(step + 1)}
-            disabled={(step === 1 && !selectedLanguage) || (step === 3 && !motivation)}
+            disabled={(step === 2 && !selectedLanguage) || (step === 4 && !motivation)}
             className="w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground"
           >
             Continue
