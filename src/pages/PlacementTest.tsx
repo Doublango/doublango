@@ -23,42 +23,49 @@ interface PlacementQuestion {
   hint?: string;
 }
 
-// Original Spanish placement questions organized by level
+// Generate word hints from correct answer for translation questions
+const generateWordHints = (correctAnswer: string): string[] => {
+  const words = correctAnswer.split(/\s+/).filter(w => w.trim());
+  // Shuffle and return as hints
+  return [...words].sort(() => Math.random() - 0.5);
+};
+
+// Original Spanish placement questions organized by level with word options for translations
 const SPANISH_PLACEMENT_QUESTIONS: PlacementQuestion[] = [
   // A1 - Beginner
   { id: '1', level: 'A1', type: 'multiple_choice', question: 'How do you say "Hello" in Spanish?', options: ['Hola', 'Adiós', 'Gracias', 'Por favor'], correctAnswer: 'Hola' },
   { id: '2', level: 'A1', type: 'multiple_choice', question: 'What does "Gracias" mean?', options: ['Hello', 'Goodbye', 'Thank you', 'Please'], correctAnswer: 'Thank you' },
-  { id: '3', level: 'A1', type: 'translation', question: 'Translate: "Buenos días"', correctAnswer: 'good morning', hint: 'A morning greeting' },
+  { id: '3', level: 'A1', type: 'multiple_choice', question: 'Translate: "Buenos días"', options: ['good morning', 'good night', 'good afternoon', 'goodbye'], correctAnswer: 'good morning', hint: 'A morning greeting' },
   { id: '4', level: 'A1', type: 'multiple_choice', question: 'Which means "water"?', options: ['Agua', 'Leche', 'Pan', 'Café'], correctAnswer: 'Agua' },
-  { id: '5', level: 'A1', type: 'word_bank', question: 'Arrange: "Yo soy estudiante" (I am a student)', options: ['estudiante', 'soy', 'Yo'], correctAnswer: 'Yo soy estudiante' },
+  { id: '5', level: 'A1', type: 'word_bank', question: 'Arrange: "Yo soy estudiante" (I am a student)', options: ['estudiante', 'soy', 'Yo', 'un', 'el'], correctAnswer: 'Yo soy estudiante' },
   
   // A2 - Elementary
-  { id: '6', level: 'A2', type: 'fill_blank', question: 'Ella ___ muy inteligente. (She is very intelligent)', correctAnswer: 'es', hint: 'Use the verb "ser"' },
+  { id: '6', level: 'A2', type: 'multiple_choice', question: 'Ella ___ muy inteligente. (She is very intelligent)', options: ['es', 'está', 'ser', 'son'], correctAnswer: 'es', hint: 'Use the verb "ser"' },
   { id: '7', level: 'A2', type: 'multiple_choice', question: 'What is the past tense of "comer" (to eat) for "yo"?', options: ['comí', 'como', 'comeré', 'comía'], correctAnswer: 'comí' },
-  { id: '8', level: 'A2', type: 'translation', question: 'Translate: "Where is the restaurant?"', correctAnswer: '¿Dónde está el restaurante?', hint: 'Use estar for location' },
+  { id: '8', level: 'A2', type: 'word_bank', question: 'Translate: "Where is the restaurant?"', options: ['¿Dónde', 'está', 'el', 'restaurante?', 'la', 'es'], correctAnswer: '¿Dónde está el restaurante?', hint: 'Use estar for location' },
   { id: '9', level: 'A2', type: 'multiple_choice', question: 'Complete: "Me gusta ___ música" (I like music)', options: ['la', 'el', 'un', 'los'], correctAnswer: 'la' },
-  { id: '10', level: 'A2', type: 'word_bank', question: 'Form: "I want to go to the beach"', options: ['a', 'ir', 'Quiero', 'playa', 'la'], correctAnswer: 'Quiero ir a la playa' },
+  { id: '10', level: 'A2', type: 'word_bank', question: 'Form: "I want to go to the beach"', options: ['a', 'ir', 'Quiero', 'playa', 'la', 'en'], correctAnswer: 'Quiero ir a la playa' },
   
   // B1 - Intermediate
-  { id: '11', level: 'B1', type: 'translation', question: 'Translate: "If I had money, I would travel"', correctAnswer: 'Si tuviera dinero, viajaría', hint: 'Conditional + subjunctive' },
+  { id: '11', level: 'B1', type: 'word_bank', question: 'Translate: "If I had money, I would travel"', options: ['Si', 'tuviera', 'dinero,', 'viajaría', 'tengo', 'viajo'], correctAnswer: 'Si tuviera dinero, viajaría', hint: 'Conditional + subjunctive' },
   { id: '12', level: 'B1', type: 'multiple_choice', question: 'Which sentence uses the subjunctive correctly?', options: ['Espero que vengas', 'Espero que vienes', 'Espero que vendrás', 'Espero que viniste'], correctAnswer: 'Espero que vengas' },
-  { id: '13', level: 'B1', type: 'fill_blank', question: 'Cuando ___ pequeño, jugaba en el parque. (When I was little...)', correctAnswer: 'era', hint: 'Imperfect tense' },
+  { id: '13', level: 'B1', type: 'multiple_choice', question: 'Cuando ___ pequeño, jugaba en el parque. (When I was little...)', options: ['era', 'fui', 'soy', 'estaba'], correctAnswer: 'era', hint: 'Imperfect tense' },
   { id: '14', level: 'B1', type: 'multiple_choice', question: '"Por" vs "Para": Viajo ___ España (I travel to Spain)', options: ['para', 'por', 'en', 'a'], correctAnswer: 'para' },
-  { id: '15', level: 'B1', type: 'translation', question: 'Translate: "I have been studying Spanish for two years"', correctAnswer: 'Llevo dos años estudiando español', hint: 'Use llevar + gerund' },
+  { id: '15', level: 'B1', type: 'word_bank', question: 'Translate: "I have been studying Spanish for two years"', options: ['Llevo', 'dos', 'años', 'estudiando', 'español', 'tengo', 'estudio'], correctAnswer: 'Llevo dos años estudiando español', hint: 'Use llevar + gerund' },
   
   // B2 - Upper Intermediate
   { id: '16', level: 'B2', type: 'multiple_choice', question: 'Complete: "Ojalá que ___ buen tiempo mañana"', options: ['haga', 'hace', 'hará', 'hizo'], correctAnswer: 'haga' },
-  { id: '17', level: 'B2', type: 'fill_blank', question: 'Aunque ___ lloviendo, saldré. (Even if it\'s raining...)', correctAnswer: 'esté', hint: 'Present subjunctive' },
-  { id: '18', level: 'B2', type: 'translation', question: 'Translate: "If I had known, I would have come earlier"', correctAnswer: 'Si hubiera sabido, habría venido antes', hint: 'Pluperfect subjunctive + conditional perfect' },
+  { id: '17', level: 'B2', type: 'multiple_choice', question: 'Aunque ___ lloviendo, saldré. (Even if it\'s raining...)', options: ['esté', 'está', 'estaba', 'estará'], correctAnswer: 'esté', hint: 'Present subjunctive' },
+  { id: '18', level: 'B2', type: 'word_bank', question: 'Translate: "If I had known, I would have come earlier"', options: ['Si', 'hubiera', 'sabido,', 'habría', 'venido', 'antes', 'había', 'venir'], correctAnswer: 'Si hubiera sabido, habría venido antes', hint: 'Pluperfect subjunctive + conditional perfect' },
   { id: '19', level: 'B2', type: 'multiple_choice', question: 'Which is correct? "El libro ___ leyendo es interesante"', options: ['que estoy', 'el cual estoy', 'quien estoy', 'lo que estoy'], correctAnswer: 'que estoy' },
-  { id: '20', level: 'B2', type: 'translation', question: 'Translate: "I doubt that he has finished"', correctAnswer: 'Dudo que haya terminado', hint: 'Present subjunctive perfect' },
+  { id: '20', level: 'B2', type: 'multiple_choice', question: 'Translate: "I doubt that he has finished"', options: ['Dudo que haya terminado', 'Dudo que ha terminado', 'Dudo que termine', 'Dudo que termina'], correctAnswer: 'Dudo que haya terminado', hint: 'Present subjunctive perfect' },
   
   // C1 - Advanced
   { id: '21', level: 'C1', type: 'multiple_choice', question: 'Which uses the future subjunctive correctly?', options: ['Si vinieres, te esperaré', 'Si vengas, te esperaré', 'Si vendrás, te esperaré', 'Si vienes, te esperaré'], correctAnswer: 'Si vinieres, te esperaré' },
-  { id: '22', level: 'C1', type: 'translation', question: 'Translate using a passive construction: "The book was written by the author"', correctAnswer: 'El libro fue escrito por el autor', hint: 'Use ser + past participle' },
-  { id: '23', level: 'C1', type: 'fill_blank', question: 'No es que no ___ venir, es que no puedo. (It\'s not that I don\'t want...)', correctAnswer: 'quiera', hint: 'Subjunctive after "no es que"' },
+  { id: '22', level: 'C1', type: 'word_bank', question: 'Translate using a passive construction: "The book was written by the author"', options: ['El', 'libro', 'fue', 'escrito', 'por', 'el', 'autor', 'era', 'de'], correctAnswer: 'El libro fue escrito por el autor', hint: 'Use ser + past participle' },
+  { id: '23', level: 'C1', type: 'multiple_choice', question: 'No es que no ___ venir, es que no puedo. (It\'s not that I don\'t want...)', options: ['quiera', 'quiero', 'quería', 'querría'], correctAnswer: 'quiera', hint: 'Subjunctive after "no es que"' },
   { id: '24', level: 'C1', type: 'multiple_choice', question: '"Habiendo ___ la tarea, salió a jugar"', options: ['terminado', 'terminar', 'terminando', 'termine'], correctAnswer: 'terminado' },
-  { id: '25', level: 'C1', type: 'translation', question: 'Translate: "Had it not been for you, I would have failed"', correctAnswer: 'De no ser por ti, habría fracasado', hint: 'Use "de no ser por"' },
+  { id: '25', level: 'C1', type: 'word_bank', question: 'Translate: "Had it not been for you, I would have failed"', options: ['De', 'no', 'ser', 'por', 'ti,', 'habría', 'fracasado', 'sido', 'fallado'], correctAnswer: 'De no ser por ti, habría fracasado', hint: 'Use "de no ser por"' },
 ];
 
 const PlacementTest: React.FC = () => {
@@ -228,8 +235,30 @@ const PlacementTest: React.FC = () => {
   };
   
   const speakText = (text: string) => {
+    // Cancel any ongoing speech
+    speechSynthesis.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = languageCode === 'es' ? 'es-ES' : languageCode;
+    
+    // Map language codes to proper BCP 47 codes
+    const langMap: Record<string, string> = {
+      'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'ja': 'ja-JP',
+      'it': 'it-IT', 'ko': 'ko-KR', 'zh': 'zh-CN', 'pt': 'pt-BR',
+      'ru': 'ru-RU', 'ar': 'ar-SA', 'hi': 'hi-IN', 'tr': 'tr-TR',
+    };
+    
+    utterance.lang = langMap[languageCode] || languageCode;
+    utterance.rate = 0.75;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    // Try to find a matching voice
+    const voices = speechSynthesis.getVoices();
+    const matchingVoice = voices.find(v => v.lang.startsWith(languageCode));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+    
     speechSynthesis.speak(utterance);
   };
   

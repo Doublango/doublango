@@ -13,6 +13,7 @@ import SpeechExercise from '@/components/SpeechExercise';
 import AudioExercise from '@/components/AudioExercise';
 import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getTTSLanguageCode } from '@/lib/languageContent';
 import type { Database } from '@/integrations/supabase/types';
 
 type Exercise = Database['public']['Tables']['exercises']['Row'];
@@ -310,14 +311,27 @@ const LessonPage: React.FC = () => {
     }
   };
 
-  const speakText = (text: string) => {
+  const speakText = useCallback((text: string) => {
+    // Cancel any ongoing speech
+    speechSynthesis.cancel();
+    
     const utterance = new SpeechSynthesisUtterance(text);
-    // Use language code from active course
     const langCode = activeCourse?.language_code || 'es';
-    utterance.lang = langCode;
-    utterance.rate = 0.8;
+    
+    utterance.lang = getTTSLanguageCode(langCode);
+    utterance.rate = 0.75;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    // Try to find a matching voice
+    const voices = speechSynthesis.getVoices();
+    const matchingVoice = voices.find(v => v.lang.startsWith(langCode));
+    if (matchingVoice) {
+      utterance.voice = matchingVoice;
+    }
+    
     speechSynthesis.speak(utterance);
-  };
+  }, [activeCourse?.language_code]);
 
   const handleSpeechResult = (correct: boolean, transcript: string, accuracy: number) => {
     setSpeechResult({ correct, transcript, accuracy });

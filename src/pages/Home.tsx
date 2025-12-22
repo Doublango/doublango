@@ -11,6 +11,7 @@ import ProgressBar from '@/components/ProgressBar';
 import AvatarMascot from '@/components/AvatarMascot';
 import LanguageSelector from '@/components/LanguageSelector';
 import UILanguageDropdown from '@/components/UILanguageDropdown';
+import DarkModeToggle from '@/components/DarkModeToggle';
 import UpgradeModal from '@/components/UpgradeModal';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { Play, Target, Flame, Crown } from 'lucide-react';
@@ -116,9 +117,10 @@ const Home: React.FC = () => {
         <div className="flex items-center justify-between max-w-lg mx-auto">
           <div className="flex items-center gap-2">
             <LanguageSelector />
-            <UILanguageDropdown compact />
+            <UILanguageDropdown />
           </div>
           <div className="flex items-center gap-2">
+            <DarkModeToggle />
             <button 
               onClick={() => setShowUpgradeModal(true)}
               className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-colors"
