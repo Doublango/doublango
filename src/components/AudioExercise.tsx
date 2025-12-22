@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Volume2, RotateCcw } from 'lucide-react';
+import { RotateCcw, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { speak, cancelSpeech, preloadVoices } from '@/lib/tts';
+import { speak, cancelSpeech, preloadVoices, isTTSSupported } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
+import { useToast } from '@/hooks/use-toast';
 
 interface AudioExerciseProps {
   correctAnswer: string;
@@ -19,6 +19,8 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   disabled = false,
 }) => {
   const { t } = useTranslation();
+  const { toast } = useToast();
+
   const [typedAnswer, setTypedAnswer] = useState('');
   const [hasPlayed, setHasPlayed] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -26,62 +28,57 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   const [audioSupported, setAudioSupported] = useState(true);
   const mountedRef = useRef(true);
 
-  // Preload voices on mount
   useEffect(() => {
     mountedRef.current = true;
-    
-    if (!('speechSynthesis' in window)) {
-      setAudioSupported(false);
-      return;
+
+    const supported = isTTSSupported();
+    setAudioSupported(supported);
+
+    if (!supported) {
+      toast({
+        title: t('common.error', 'Audio not available'),
+        description: t('speech.notSupported', 'Audio playback is not supported in your browser.'),
+        variant: 'destructive',
+      });
+      return () => {
+        mountedRef.current = false;
+      };
     }
-    
-    // Preload voices for this language
-    preloadVoices(languageCode).then(hasVoice => {
-      if (mountedRef.current && !hasVoice) {
-        console.warn('No voice available for', languageCode);
-      }
-    });
-    
+
+    // Preload voices (non-blocking)
+    preloadVoices(languageCode).catch(() => undefined);
+
     return () => {
       mountedRef.current = false;
       cancelSpeech();
     };
-  }, [languageCode]);
+  }, [languageCode, toast, t]);
 
   const speakText = useCallback(async () => {
-    if (isPlaying || !audioSupported || !correctAnswer) return;
-    
+    if (isPlaying || !audioSupported || !correctAnswer || disabled) return;
+
     setIsPlaying(true);
-    
+
     try {
-      await speak(correctAnswer, languageCode, { 
-        rate: playCount === 0 ? 0.65 : 0.8 
+      await speak(correctAnswer, languageCode, {
+        rate: playCount === 0 ? 0.75 : 0.9,
       });
+
+      if (mountedRef.current) {
+        setHasPlayed(true);
+        setPlayCount((prev) => prev + 1);
+      }
     } catch (error) {
       console.error('Speech error:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('speech.genericError', 'Could not play audio.'),
+        variant: 'destructive',
+      });
     } finally {
-      if (mountedRef.current) {
-        setIsPlaying(false);
-        setHasPlayed(true);
-        setPlayCount(prev => prev + 1);
-      }
+      if (mountedRef.current) setIsPlaying(false);
     }
-  }, [correctAnswer, languageCode, isPlaying, playCount, audioSupported]);
-
-  // Auto-play on mount with delay
-  useEffect(() => {
-    if (!audioSupported || !correctAnswer) return;
-    
-    const timer = setTimeout(() => {
-      if (!hasPlayed && mountedRef.current) {
-        speakText();
-      }
-    }, 1000);
-    
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [audioSupported, correctAnswer]);
+  }, [audioSupported, correctAnswer, disabled, isPlaying, languageCode, playCount, toast, t]);
 
   const handleSubmit = () => {
     onAnswer(typedAnswer);
@@ -90,8 +87,8 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
   if (!audioSupported) {
     return (
       <div className="text-center p-6 bg-muted/50 rounded-2xl">
-        <p className="text-muted-foreground">Audio playback is not supported in your browser.</p>
-        <p className="mt-2 font-medium">Answer: {correctAnswer}</p>
+        <p className="text-muted-foreground">{t('speech.notSupported', 'Audio playback is not supported in your browser.')}</p>
+        <p className="mt-2 font-medium">{t('common.answer', 'Answer')}: {correctAnswer}</p>
       </div>
     );
   }
@@ -104,21 +101,18 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
           disabled={isPlaying || disabled}
           className={cn(
             'w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all shadow-lg',
-            isPlaying 
-              ? 'bg-primary/80 animate-pulse scale-110' 
+            isPlaying
+              ? 'bg-primary/80 animate-pulse scale-110'
               : 'bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
         >
-          <Volume2 className={cn(
-            'w-12 h-12 text-primary-foreground mb-1',
-            isPlaying && 'animate-bounce'
-          )} />
+          <Volume2 className={cn('w-12 h-12 text-primary-foreground mb-1', isPlaying && 'animate-bounce')} />
           <span className="text-primary-foreground text-sm font-medium">
-            {isPlaying ? 'Playing...' : 'Tap to listen'}
+            {isPlaying ? t('speech.playing', 'Playing...') : t('speech.tapToListen', 'Tap to listen')}
           </span>
         </button>
-        
+
         {playCount > 0 && (
           <button
             onClick={speakText}
@@ -126,7 +120,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
             className="flex items-center gap-2 text-sm text-primary hover:underline"
           >
             <RotateCcw className="w-4 h-4" />
-            Listen again ({playCount}x played)
+            {t('speech.listenAgain', 'Listen again')} ({playCount}x)
           </button>
         )}
       </div>
@@ -137,7 +131,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
           value={typedAnswer}
           onChange={(e) => setTypedAnswer(e.target.value)}
           disabled={disabled}
-          placeholder="Type what you hear..."
+          placeholder={t('speech.typeWhatYouHear', 'Type what you hear...')}
           className={cn(
             'w-full p-4 rounded-2xl border-2 bg-card text-lg text-center',
             !disabled && 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20',
@@ -149,18 +143,16 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
             }
           }}
         />
-        
+
         {playCount >= 2 && !disabled && (
           <div className="text-center">
-            <p className="text-xs text-muted-foreground mb-1">💡 Hint: The answer is:</p>
+            <p className="text-xs text-muted-foreground mb-1">💡 {t('speech.hint', 'Hint')}: {t('speech.answerIs', 'The answer is')}:</p>
             <p className="text-sm font-medium text-primary">{correctAnswer}</p>
           </div>
         )}
-        
+
         {hasPlayed && playCount < 2 && !disabled && (
-          <p className="text-sm text-muted-foreground text-center">
-            💡 Type exactly what you hear
-          </p>
+          <p className="text-sm text-muted-foreground text-center">💡 {t('speech.typeExactly', 'Type exactly what you hear')}</p>
         )}
       </div>
     </div>
@@ -168,3 +160,4 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
 };
 
 export default AudioExercise;
+
