@@ -20,7 +20,8 @@ import {
   EXTENDED_TRANSLATIONS,
   DIFFICULTY_LEVELS,
   type DifficultyLevel,
-  type CategoryData
+  type CategoryData,
+  type PhraseData
 } from '@/lib/talkPhrases';
 
 const Talk: React.FC = () => {
