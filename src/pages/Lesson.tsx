@@ -128,7 +128,13 @@ const LessonPage: React.FC = () => {
     };
 
     loadLesson();
-  }, [lessonId, toast]);
+  }, [lessonId, toast, activeCourse?.language_code]);
+
+  // If the course language arrives after initial fetch, resanitize existing exercises
+  useEffect(() => {
+    if (!activeCourse?.language_code || exercises.length === 0) return;
+    setExercises(prev => sanitizeLessonExercises(prev, activeCourse.language_code));
+  }, [activeCourse?.language_code]);
 
   useEffect(() => {
     // Initialize word bank when exercise changes

@@ -10,13 +10,32 @@ import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import { X, Clock, Zap, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
+import { speak } from '@/lib/tts';
 import type { Database } from '@/integrations/supabase/types';
 
 type Exercise = Database['public']['Tables']['exercises']['Row'];
 
-interface ExerciseOption {
-  text: string;
-}
+type ExerciseOption = string | { text: string };
+
+// Helper to normalize options to string array
+const normalizeOptions = (options: unknown): string[] => {
+  if (!options) return [];
+  if (Array.isArray(options)) {
+    return (options as ExerciseOption[]).map((opt) => (typeof opt === 'string' ? opt : opt.text));
+  }
+  // { words: string[] }
+  if (typeof options === 'object' && options !== null && 'words' in (options as any)) {
+    const words = (options as any).words;
+    return Array.isArray(words) ? words : [];
+  }
+  return [];
+};
+
+const buildFallbackHints = (correctAnswer: string): string[] => {
+  const words = correctAnswer.split(/\s+/).map((w) => w.trim()).filter(Boolean);
+  return words.length ? words : [correctAnswer];
+};
 
 const CHALLENGE_DURATION = 60; // seconds
 
@@ -83,7 +102,12 @@ const TimedChallenge: React.FC = () => {
 
         // Shuffle and take 20
         const shuffled = [...exercisesData].sort(() => Math.random() - 0.5).slice(0, 20);
-        setExercises(shuffled);
+        setExercises(
+          sanitizeLessonExercises(
+            shuffled,
+            activeCourse.language_code as Database['public']['Enums']['language_code']
+          )
+        );
       } catch (error) {
         console.error('Error loading exercises:', error);
         toast({ title: 'Error', description: 'Failed to load exercises', variant: 'destructive' });
@@ -194,9 +218,8 @@ const TimedChallenge: React.FC = () => {
   };
 
   const speakText = (text: string) => {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = activeCourse?.language_code === 'es' ? 'es-ES' : 'en';
-    speechSynthesis.speak(utterance);
+    if (!activeCourse) return;
+    void speak(text, activeCourse.language_code, { rate: 0.75 });
   };
 
   const handleSkip = () => {
@@ -316,9 +339,9 @@ const TimedChallenge: React.FC = () => {
                 </div>
               </div>
 
-              {currentExercise.exercise_type === 'translation' && (
+              {(currentExercise.exercise_type === 'translation' || currentExercise.exercise_type === 'fill_blank') && (
                 <button
-                  onClick={() => speakText(currentExercise.question)}
+                  onClick={() => speakText(currentExercise.correct_answer)}
                   className="mt-3 bg-primary/10 hover:bg-primary/20 rounded-xl p-3 flex items-center justify-center gap-2 transition-colors w-full"
                 >
                   <Volume2 className="w-5 h-5 text-primary" />
@@ -331,12 +354,7 @@ const TimedChallenge: React.FC = () => {
             <div className="flex-1 space-y-3">
               {currentExercise.exercise_type === 'multiple_choice' && currentExercise.options && (
                 <div className="space-y-2">
-                  {(Array.isArray(currentExercise.options) 
-                    ? (currentExercise.options as unknown as (string | ExerciseOption)[]).map((opt) => 
-                        typeof opt === 'string' ? opt : (opt as ExerciseOption).text
-                      )
-                    : []
-                  ).map((option: string, i: number) => (
+                  {normalizeOptions(currentExercise.options).map((option: string, i: number) => (
                     <button
                       key={i}
                       onClick={() => {
@@ -375,21 +393,37 @@ const TimedChallenge: React.FC = () => {
 
               {(currentExercise.exercise_type === 'translation' || currentExercise.exercise_type === 'fill_blank') && (
                 <div className="space-y-4">
-                  <input
-                    type="text"
-                    value={typedAnswer}
-                    onChange={(e) => setTypedAnswer(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && typedAnswer.trim() && checkAndNext()}
-                    placeholder="Type your answer..."
-                    autoFocus
-                    className="w-full p-4 rounded-2xl border-2 bg-card text-lg border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                  />
+                  {(() => {
+                    const provided = normalizeOptions(currentExercise.options).filter(Boolean);
+                    const hints = provided.length ? provided : buildFallbackHints(currentExercise.correct_answer);
+                    return (
+                      <>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          {hints.map((w, i) => (
+                            <button
+                              key={`${w}-${i}`}
+                              type="button"
+                              onClick={() => setTypedAnswer(prev => (prev ? `${prev} ${w}` : w))}
+                              className="px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
+                            >
+                              {w}
+                            </button>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          value={typedAnswer}
+                          onChange={(e) => setTypedAnswer(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && typedAnswer.trim() && checkAndNext()}
+                          placeholder="Type your answer..."
+                          autoFocus
+                          className="w-full p-4 rounded-2xl border-2 bg-card text-lg border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                      </>
+                    );
+                  })()}
                   <div className="flex gap-2">
-                    <Button
-                      onClick={handleSkip}
-                      variant="outline"
-                      className="flex-1 h-12 rounded-xl"
-                    >
+                    <Button onClick={handleSkip} variant="outline" className="flex-1 h-12 rounded-xl">
                       Skip
                     </Button>
                     <Button
