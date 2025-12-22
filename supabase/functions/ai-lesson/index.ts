@@ -61,22 +61,61 @@ serve(async (req) => {
     const prompt = {
       role: "system",
       content:
-        "You generate Duolingo-style language-learning exercises. Output ONLY valid JSON.\n" +
-        "Rules: no placeholders, no empty strings, no single-word answers unless the question explicitly asks for a single word. Prefer short sentences/phrases (3-10 words).\n" +
-        "Exercise variety: include at least one of each: multiple_choice, translation, match_pairs (4 pairs), type_what_you_hear, word_bank, select_sentence.\n" +
-        "Questions should be in English, but the answers must be in the target language.\n" +
-        "The JSON shape must be: { \"exercises\": AiExercise[] } where AiExercise = { exercise_type, question, correct_answer, options?, hint? }.\n" +
-        "Options formats: for multiple_choice/select_sentence use options: string[] (4 items). For word_bank use options: { words: string[] }. For match_pairs use options: { pairs: { left: string, right: string }[] } (exactly 4).\n" +
-        "For type_what_you_hear set question: \"Type what you hear\" and correct_answer: target phrase.\n" +
-        "Content should feel realistic, useful, and not silly.",
+        "You are an expert language-learning content generator for a Duolingo-style app.\n" +
+        "Output ONLY valid JSON with { \"exercises\": AiExercise[] }.\n\n" +
+        "CRITICAL RULES:\n" +
+        "1. NEVER use placeholder sentences like 'I am happy', 'I am sad', 'The cat is big'. These are boring and overused.\n" +
+        "2. Create REALISTIC, USEFUL sentences travelers and learners actually need.\n" +
+        "3. Answers must be SHORT PHRASES or SENTENCES (3-10 words), not single words unless explicitly required.\n" +
+        "4. Rotate topics: greetings, food ordering, directions, shopping, hotel, transport, emergencies, socializing, weather, time.\n" +
+        "5. Make questions progressively more complex as lesson number increases.\n" +
+        "6. NEVER repeat similar sentences within the same set.\n\n" +
+        "Exercise variety required:\n" +
+        "- 2x multiple_choice (translate English→target with 4 options)\n" +
+        "- 2x translation (type the translation)\n" +
+        "- 2x word_bank (arrange words to form a sentence)\n" +
+        "- 1x match_pairs (4 word pairs left/right)\n" +
+        "- 2x type_what_you_hear (transcribe the target phrase)\n" +
+        "- 1x select_sentence (pick correct sentence from 4)\n\n" +
+        "Options formats:\n" +
+        "- multiple_choice/select_sentence: options: string[] (exactly 4 including correct)\n" +
+        "- word_bank: options: { words: string[] } (shuffled words from answer + 2-3 distractors)\n" +
+        "- match_pairs: options: { pairs: [{left:string, right:string}] } (exactly 4 pairs)\n" +
+        "- type_what_you_hear: question='Type what you hear', correct_answer=target phrase\n\n" +
+        "Quality examples:\n" +
+        "- 'Where is the nearest pharmacy?' ✓\n" +
+        "- 'I would like a table for two, please' ✓\n" +
+        "- 'The train leaves at three o'clock' ✓\n" +
+        "- 'I am happy' ✗ (too basic/overused)",
     };
+
+    const topicPool = [
+      "ordering food at a restaurant",
+      "asking for directions",
+      "checking into a hotel",
+      "buying tickets for transport",
+      "shopping for clothes",
+      "meeting new people",
+      "making a reservation",
+      "asking about the weather",
+      "discussing plans and schedules",
+      "emergencies and asking for help",
+      "describing your family",
+      "talking about hobbies",
+      "asking about prices",
+      "polite requests and thanking",
+    ];
+    const selectedTopics = topicPool.sort(() => 0.5 - Math.random()).slice(0, 3);
 
     const userMsg = {
       role: "user",
       content:
         `Target language code: ${lang}. Lesson number: ${lessonNo}.\n` +
-        `Generate 10 exercises for a beginner-to-intermediate lesson, with varied everyday topics (greetings, travel, food, time, family, directions).\n` +
-        `Make sure answers are written in the target language.`,
+        `Generate exactly 10 high-quality exercises.\n` +
+        `Focus on these topics: ${selectedTopics.join(", ")}.\n` +
+        `Lesson ${lessonNo <= 5 ? "is beginner level (A1)" : lessonNo <= 15 ? "is elementary level (A2)" : "is intermediate level (B1)"}.\n` +
+        `All answers must be written in the target language (${lang}). Questions are in English.\n` +
+        `Remember: NO 'I am happy/sad/tired' type sentences. Be creative and practical.`,
     };
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
