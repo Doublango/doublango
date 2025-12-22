@@ -8,6 +8,7 @@ import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import { X, Volume2, Mic, MicOff, Check, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { speak } from '@/lib/tts';
 import type { Database } from '@/integrations/supabase/types';
 
 type LanguageCode = Database['public']['Enums']['language_code'];
@@ -235,31 +236,7 @@ const PlacementTest: React.FC = () => {
   };
   
   const speakText = (text: string) => {
-    // Cancel any ongoing speech
-    speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // Map language codes to proper BCP 47 codes
-    const langMap: Record<string, string> = {
-      'es': 'es-ES', 'fr': 'fr-FR', 'de': 'de-DE', 'ja': 'ja-JP',
-      'it': 'it-IT', 'ko': 'ko-KR', 'zh': 'zh-CN', 'pt': 'pt-BR',
-      'ru': 'ru-RU', 'ar': 'ar-SA', 'hi': 'hi-IN', 'tr': 'tr-TR',
-    };
-    
-    utterance.lang = langMap[languageCode] || languageCode;
-    utterance.rate = 0.75;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    // Try to find a matching voice
-    const voices = speechSynthesis.getVoices();
-    const matchingVoice = voices.find(v => v.lang.startsWith(languageCode));
-    if (matchingVoice) {
-      utterance.voice = matchingVoice;
-    }
-    
-    speechSynthesis.speak(utterance);
+    void speak(text, languageCode, { rate: 0.75 });
   };
   
   if (showResult) {

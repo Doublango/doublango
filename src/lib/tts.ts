@@ -27,15 +27,9 @@ const ensureVoiceListeners = () => {
   const synth = getSynth();
   if (!synth || listenersInstalled) return;
   listenersInstalled = true;
-
-  // Prime immediately
   refreshVoices();
 
-  const handler = () => {
-    refreshVoices();
-  };
-
-  // Some browsers support addEventListener, others only onvoiceschanged
+  const handler = () => refreshVoices();
   try {
     if (typeof (synth as any).addEventListener === "function") {
       (synth as any).addEventListener("voiceschanged", handler);
@@ -63,76 +57,142 @@ const pickBestVoice = (ttsLang: string): SpeechSynthesisVoice | undefined => {
 };
 
 /**
- * IMPORTANT: Keep this function user-gesture friendly.
- * Avoid awaiting before calling synth.speak(), otherwise iOS/Safari may block audio.
+ * Build a Google Translate TTS URL (free, no API key)
  */
-export const speak = (text: string, languageCode: string, opts: SpeakOptions = {}): Promise<void> => {
+const buildGoogleTTSUrl = (text: string, lang: string): string => {
+  const tl = lang.split("-")[0]; // Google uses simple 2-letter codes
+  const encoded = encodeURIComponent(text.slice(0, 200)); // Google limits ~200 chars
+  return `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encoded}`;
+};
+
+/**
+ * Play audio via Google Translate TTS (fallback)
+ */
+const playGoogleTTS = (text: string, lang: string): Promise<void> => {
+  return new Promise((resolve) => {
+    try {
+      const url = buildGoogleTTSUrl(text, lang);
+      const audio = new Audio(url);
+      audio.crossOrigin = "anonymous";
+      
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+
+      audio.onended = finish;
+      audio.onerror = () => {
+        console.warn("Google TTS fallback failed");
+        finish();
+      };
+
+      // Timeout fallback
+      setTimeout(finish, 15000);
+
+      audio.play().catch(() => finish());
+    } catch {
+      resolve();
+    }
+  });
+};
+
+/**
+ * Play using Web Speech API
+ */
+const playWebSpeech = (text: string, ttsLang: string, opts: SpeakOptions): Promise<boolean> => {
   const synth = getSynth();
-  if (!synth) return Promise.resolve();
-
-  const trimmed = text?.trim();
-  if (!trimmed) return Promise.resolve();
-
-  ensureVoiceListeners();
-
-  const ttsLang = getTTSLanguageCode(languageCode);
-  const utterance = new SpeechSynthesisUtterance(trimmed);
-  utterance.lang = ttsLang;
-  utterance.rate = opts.rate ?? 0.8;
-  utterance.pitch = opts.pitch ?? 1;
-  utterance.volume = opts.volume ?? 1;
-
-  const voice = pickBestVoice(ttsLang);
-  if (voice) utterance.voice = voice;
-
-  // Cancel any previous utterance
-  try {
-    synth.cancel();
-  } catch {
-    // ignore
-  }
+  if (!synth) return Promise.resolve(false);
 
   return new Promise((resolve) => {
+    try {
+      synth.cancel();
+    } catch {
+      // ignore
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = ttsLang;
+    utterance.rate = opts.rate ?? 0.8;
+    utterance.pitch = opts.pitch ?? 1;
+    utterance.volume = opts.volume ?? 1;
+
+    const voice = pickBestVoice(ttsLang);
+    if (voice) utterance.voice = voice;
+
     let done = false;
-    const finish = () => {
+    let started = false;
+
+    const finish = (success: boolean) => {
       if (done) return;
       done = true;
-      resolve();
+      resolve(success);
     };
 
-    utterance.onend = finish;
-    utterance.onerror = () => finish();
+    utterance.onstart = () => {
+      started = true;
+    };
+
+    utterance.onend = () => finish(true);
+    utterance.onerror = (e) => {
+      // "interrupted" is normal when canceling
+      if (e.error === "interrupted" || e.error === "canceled") {
+        finish(true);
+      } else {
+        console.warn("Web Speech error:", e.error);
+        finish(false);
+      }
+    };
 
     try {
       synth.speak(utterance);
 
-      // Safari/Chrome occasionally starts paused
+      // Chrome fix: resume if paused
       try {
         if ((synth as any).paused) (synth as any).resume?.();
       } catch {
         // ignore
       }
 
-      // If the browser silently blocks / fails to start, retry quickly once
+      // Check if speech actually started after 300ms
       setTimeout(() => {
-        try {
-          if (!done && !(synth as any).speaking) {
-            (synth as any).resume?.();
-            synth.speak(utterance);
-          }
-        } catch {
-          // ignore
+        if (!done && !started && !(synth as any).speaking) {
+          // Speech didn't start - fail so we can try fallback
+          finish(false);
         }
-      }, 150);
+      }, 300);
 
-      // Hard timeout safeguard
-      setTimeout(() => {
-        if (!done) finish();
-      }, 12000);
+      // Hard timeout
+      setTimeout(() => finish(started), 12000);
     } catch {
-      finish();
+      finish(false);
     }
   });
+};
+
+/**
+ * Main speak function - tries Web Speech API first, then Google Translate TTS fallback
+ */
+export const speak = async (
+  text: string,
+  languageCode: string,
+  opts: SpeakOptions = {}
+): Promise<void> => {
+  const trimmed = text?.trim();
+  if (!trimmed) return;
+
+  ensureVoiceListeners();
+  const ttsLang = getTTSLanguageCode(languageCode);
+
+  // Try Web Speech API first
+  const webSpeechWorked = await playWebSpeech(trimmed, ttsLang, opts);
+  
+  if (!webSpeechWorked) {
+    // Fallback to Google Translate TTS
+    console.log("TTS: Using Google Translate fallback");
+    await playGoogleTTS(trimmed, ttsLang);
+  }
 };
 
 export const cancelSpeech = () => {
@@ -162,4 +222,4 @@ export const getAvailableVoices = async (): Promise<SpeechSynthesisVoice[]> => {
   return refreshVoices();
 };
 
-export const isTTSSupported = () => Boolean(getSynth());
+export const isTTSSupported = () => true; // Always true now with Google fallback

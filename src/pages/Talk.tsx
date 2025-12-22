@@ -6,104 +6,22 @@ import { useTranslation } from 'react-i18next';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AppHeader from '@/components/AppHeader';
 import BottomNavigation from '@/components/BottomNavigation';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import AvatarMascot from '@/components/AvatarMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Mic2, Volume2, ChevronRight
-} from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { Mic2, Volume2, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
 import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
-
-// Comprehensive phrase library with translations for all languages
-const PHRASE_LIBRARY = {
-  greetings: {
-    title: 'Greetings',
-    icon: '👋',
-    phrases: [
-      { key: 'hello', en: 'Hello' },
-      { key: 'good_morning', en: 'Good morning' },
-      { key: 'good_night', en: 'Good evening' },
-      { key: 'goodbye', en: 'Goodbye' },
-      { key: 'how_are_you', en: 'How are you?' },
-    ]
-  },
-  basics: {
-    title: 'Basic Phrases',
-    icon: '💬',
-    phrases: [
-      { key: 'yes', en: 'Yes' },
-      { key: 'no', en: 'No' },
-      { key: 'please', en: 'Please' },
-      { key: 'thank_you', en: 'Thank you' },
-      { key: 'excuse_me', en: 'Excuse me' },
-      { key: 'sorry', en: 'Sorry' },
-      { key: 'i_dont_understand', en: "I don't understand" },
-    ]
-  },
-  introductions: {
-    title: 'Introductions',
-    icon: '🤝',
-    phrases: [
-      { key: 'my_name_is', en: 'My name is...' },
-      { key: 'nice_to_meet_you', en: 'Nice to meet you' },
-      { key: 'how_are_you', en: 'How are you?' },
-      { key: 'im_fine', en: 'I am fine' },
-      { key: 'where_is', en: 'Where are you from?' },
-    ]
-  },
-  essentials: {
-    title: 'Essentials',
-    icon: '🍽️',
-    phrases: [
-      { key: 'water', en: 'Water' },
-      { key: 'food', en: 'Food' },
-      { key: 'help', en: 'Help' },
-      { key: 'how_much', en: 'How much?' },
-      { key: 'where_is', en: 'Where is...?' },
-    ]
-  },
-};
-
-// Kids-friendly phrases
-const KIDS_PHRASE_LIBRARY = {
-  greetings: {
-    title: 'Say Hi! 👋',
-    icon: '👋',
-    phrases: [
-      { key: 'hello', en: 'Hello!' },
-      { key: 'good_morning', en: 'Good morning!' },
-      { key: 'goodbye', en: 'Bye bye!' },
-    ]
-  },
-  polite: {
-    title: 'Magic Words ✨',
-    icon: '✨',
-    phrases: [
-      { key: 'please', en: 'Please' },
-      { key: 'thank_you', en: 'Thank you!' },
-      { key: 'sorry', en: 'Sorry' },
-    ]
-  },
-  basics: {
-    title: 'Yes & No 👍',
-    icon: '👍',
-    phrases: [
-      { key: 'yes', en: 'Yes!' },
-      { key: 'no', en: 'No' },
-      { key: 'help', en: 'Help!' },
-    ]
-  },
-  food: {
-    title: 'Yummy! 🍎',
-    icon: '🍎',
-    phrases: [
-      { key: 'water', en: 'Water' },
-      { key: 'food', en: 'Food' },
-    ]
-  },
-};
+import { 
+  ADULT_PHRASE_LIBRARY, 
+  KIDS_PHRASE_LIBRARY, 
+  EXTENDED_TRANSLATIONS,
+  DIFFICULTY_LEVELS,
+  type DifficultyLevel,
+  type CategoryData
+} from '@/lib/talkPhrases';
 
 const Talk: React.FC = () => {
   const navigate = useNavigate();
@@ -120,16 +38,29 @@ const Talk: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [practiceComplete, setPracticeComplete] = useState(false);
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(0); // 0=beginner, 1=basic, 2=intermediate, 3=advanced
 
   const languageCode = activeCourse?.language_code || 'es';
   const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
+  const extendedContent = EXTENDED_TRANSLATIONS[languageCode] || EXTENDED_TRANSLATIONS.es || {};
   
   // Use kids or adult phrase library
-  const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : PHRASE_LIBRARY;
-  const categories = Object.entries(phraseLibrary).map(([id, data]) => ({
-    id,
-    ...data
-  }));
+  const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY;
+  
+  // Filter categories based on difficulty level
+  const currentDifficulty = DIFFICULTY_LEVELS[difficultyLevel]?.value || 'beginner';
+  
+  const getFilteredCategories = useCallback((): CategoryData[] => {
+    const levelOrder: DifficultyLevel[] = ['beginner', 'basic', 'intermediate', 'advanced'];
+    const maxLevelIndex = levelOrder.indexOf(currentDifficulty);
+    
+    return phraseLibrary.map(cat => ({
+      ...cat,
+      phrases: cat.phrases.filter(p => levelOrder.indexOf(p.level) <= maxLevelIndex)
+    })).filter(cat => cat.phrases.length > 0);
+  }, [phraseLibrary, currentDifficulty]);
+
+  const categories = getFilteredCategories();
 
   // Preload voices when language changes
   useEffect(() => {
@@ -145,16 +76,25 @@ const Talk: React.FC = () => {
 
   // Get translated phrase from language content
   const getTranslatedPhrase = useCallback((phraseKey: string, englishFallback: string): string => {
+    // Check extended translations first (for new phrases)
+    if (extendedContent && extendedContent[phraseKey]) {
+      return extendedContent[phraseKey];
+    }
+    // Then check main language content
     if (languageContent && languageContent[phraseKey]) {
       return languageContent[phraseKey];
     }
-    // Fallback: try to find in default Spanish
+    // Fallback: try Spanish extended
+    if (EXTENDED_TRANSLATIONS.es?.[phraseKey]) {
+      return EXTENDED_TRANSLATIONS.es[phraseKey];
+    }
+    // Try Spanish main
     if (LANGUAGE_CONTENT.es[phraseKey]) {
       return LANGUAGE_CONTENT.es[phraseKey];
     }
     // Last resort: never show blank
     return englishFallback;
-  }, [languageContent]);
+  }, [languageContent, extendedContent]);
 
   const getCurrentCategory = useCallback(() => {
     if (!selectedCategory) return null;
@@ -174,6 +114,7 @@ const Talk: React.FC = () => {
       english: phraseData.en,
       translation: translatedPhrase,
       key: phraseData.key,
+      level: phraseData.level,
     };
   }, [getCurrentCategory, currentPhraseIndex, getTranslatedPhrase]);
 
@@ -263,7 +204,7 @@ const Talk: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -272,7 +213,7 @@ const Talk: React.FC = () => {
   if (practiceComplete) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background flex flex-col items-center justify-center p-6">
-        <MonkeyMascot mood="celebrating" size="xl" animate className="mb-6" />
+        <AvatarMascot mood="celebrating" size="xl" animate className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">{t('speech.practiceComplete', 'Practice Complete!')}</h1>
         <p className="text-muted-foreground mb-8">{t('speech.greatPronunciation', 'Great pronunciation practice!')}</p>
         
@@ -317,6 +258,17 @@ const Talk: React.FC = () => {
           {/* Phrase Card */}
           {phrase && (
             <div className="bg-card rounded-2xl p-6 shadow-md mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <span className={cn(
+                  "text-xs px-2 py-0.5 rounded-full",
+                  phrase.level === 'beginner' && "bg-success/20 text-success",
+                  phrase.level === 'basic' && "bg-primary/20 text-primary",
+                  phrase.level === 'intermediate' && "bg-warning/20 text-warning",
+                  phrase.level === 'advanced' && "bg-destructive/20 text-destructive"
+                )}>
+                  {DIFFICULTY_LEVELS.find(l => l.value === phrase.level)?.emoji} {phrase.level}
+                </span>
+              </div>
               <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
               <p className="text-2xl font-bold mb-2">{phrase.translation}</p>
               <p className="text-sm text-muted-foreground mb-4">({phrase.english})</p>
@@ -412,13 +364,44 @@ const Talk: React.FC = () => {
           </div>
         </div>
 
+        {/* Level Slider */}
+        {!isKidsMode && (
+          <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <span className="font-medium text-sm">Difficulty Level</span>
+              <span className="text-sm font-bold text-primary">
+                {DIFFICULTY_LEVELS[difficultyLevel]?.emoji} {DIFFICULTY_LEVELS[difficultyLevel]?.label}
+              </span>
+            </div>
+            <Slider
+              value={[difficultyLevel]}
+              onValueChange={(val) => setDifficultyLevel(val[0])}
+              max={3}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+              {DIFFICULTY_LEVELS.map((l, i) => (
+                <span key={l.value} className={cn(difficultyLevel === i && "text-primary font-medium")}>
+                  {l.emoji}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Categories */}
         <h3 className="font-bold text-lg mb-4">{isKidsMode ? '🌟 Pick a Topic!' : t('speech.categories', 'Practice Categories')}</h3>
         <div className="space-y-3">
           {categories.map((category) => (
             <button
               key={category.id}
-              onClick={() => setSelectedCategory(category.id)}
+              onClick={() => {
+                setSelectedCategory(category.id);
+                setCurrentPhraseIndex(0);
+                setTranscript('');
+                setAccuracy(null);
+              }}
               className="w-full bg-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4 text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
