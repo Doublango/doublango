@@ -5,6 +5,13 @@ export type SpeakOptions = {
   rate?: number;
   pitch?: number;
   volume?: number;
+  /**
+   * proxy: backend Google TTS proxy (reliable; default)
+   * webspeech: browser SpeechSynthesis (supports voice selection)
+   */
+  engine?: "proxy" | "webspeech";
+  /** Only used for webspeech */
+  voiceURI?: string | null;
 };
 
 
@@ -83,11 +90,16 @@ const playWebSpeech = (text: string, ttsLang: string, opts: SpeakOptions): Promi
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = ttsLang;
-    utterance.rate = opts.rate ?? 0.8;
+    utterance.rate = opts.rate ?? 0.9;
     utterance.pitch = opts.pitch ?? 1;
     utterance.volume = opts.volume ?? 1;
 
-    const voice = pickBestVoice(ttsLang);
+    const voices = refreshVoices();
+    const preferred = opts.voiceURI
+      ? voices.find((v) => v.voiceURI === opts.voiceURI)
+      : undefined;
+
+    const voice = preferred || pickBestVoice(ttsLang);
     if (voice) utterance.voice = voice;
 
     let done = false;
@@ -124,16 +136,17 @@ const playWebSpeech = (text: string, ttsLang: string, opts: SpeakOptions): Promi
         // ignore
       }
 
-      // Check if speech actually started after 300ms
+      // Fail fast if speech doesn't start quickly (prevents 12s delays)
       setTimeout(() => {
         if (!done && !started && !(synth as any).speaking) {
-          // Speech didn't start - fail so we can try fallback
           finish(false);
         }
-      }, 300);
+      }, 900);
 
-      // Hard timeout
-      setTimeout(() => finish(started), 12000);
+      // Hard timeout (short) so we can fall back quickly
+      setTimeout(() => {
+        if (!done) finish(started);
+      }, 3000);
     } catch {
       finish(false);
     }
@@ -154,14 +167,19 @@ export const speak = async (
   ensureVoiceListeners();
   const ttsLang = getTTSLanguageCode(languageCode);
 
-  // Try Web Speech API first
-  const webSpeechWorked = await playWebSpeech(trimmed, ttsLang, opts);
-  
-  if (!webSpeechWorked) {
-    // Fallback to Google Translate TTS
-    console.log("TTS: Using Google Translate fallback");
-    await playGoogleTTS(trimmed, ttsLang);
+  const engine = opts.engine ?? "proxy";
+
+  if (engine === "webspeech") {
+    const ok = await playWebSpeech(trimmed, ttsLang, opts);
+    if (!ok) {
+      // fallback
+      await playGoogleTTS(trimmed, ttsLang);
+    }
+    return;
   }
+
+  // Default: use backend proxy first for predictable playback
+  await playGoogleTTS(trimmed, ttsLang);
 };
 
 export const cancelSpeech = () => {
