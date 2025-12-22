@@ -540,14 +540,14 @@ const LessonPage: React.FC = () => {
                 </div>
               </div>
               
-              {/* Audio button for listening exercises */}
-              {(currentExercise.exercise_type === 'type_what_you_hear' || currentExercise.audio_url) && (
+              {/* Audio button (plays the answer in the target language) */}
+              {currentExercise.exercise_type !== 'speak_answer' && (
                 <button
                   onClick={() => speakText(currentExercise.correct_answer)}
                   className="mt-4 w-full bg-primary/10 hover:bg-primary/20 rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors"
                 >
                   <Volume2 className="w-6 h-6 text-primary" />
-                  <span className="font-medium text-primary">Tap to listen</span>
+                  <span className="font-medium text-primary">Listen</span>
                 </button>
               )}
             </div>
@@ -562,7 +562,11 @@ const LessonPage: React.FC = () => {
                   {normalizeOptions(currentExercise.options).map((optionText, i) => (
                     <button
                       key={i}
-                      onClick={() => !isChecked && setSelectedAnswer(optionText)}
+                      onClick={() => {
+                        if (isChecked) return;
+                        setSelectedAnswer(optionText);
+                        speakText(optionText);
+                      }}
                       disabled={isChecked}
                       className={cn(
                         'w-full p-4 rounded-2xl border-2 text-left transition-all',
@@ -617,7 +621,10 @@ const LessonPage: React.FC = () => {
                             <button
                               key={i}
                               type="button"
-                              onClick={() => setTypedAnswer(prev => prev ? `${prev} ${word}` : word)}
+                              onClick={() => {
+                                speakText(word);
+                                setTypedAnswer((prev) => (prev ? `${prev} ${word}` : word));
+                              }}
                               className="px-3 py-1.5 bg-muted hover:bg-muted/80 rounded-lg text-sm font-medium transition-colors"
                             >
                               {word}
@@ -665,16 +672,20 @@ const LessonPage: React.FC = () => {
                     {wordBankAnswer.length === 0 && (
                       <span className="text-muted-foreground">Tap words to build your answer</span>
                     )}
-                    {wordBankAnswer.map((word, i) => (
-                      <button
-                        key={i}
-                        onClick={() => !isChecked && handleWordBankClick(word, true)}
-                        disabled={isChecked}
-                        className="px-3 py-2 bg-primary text-primary-foreground rounded-xl font-medium"
-                      >
-                        {word}
-                      </button>
-                    ))}
+                      {wordBankAnswer.map((word, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            if (isChecked) return;
+                            speakText(word);
+                            handleWordBankClick(word, true);
+                          }}
+                          disabled={isChecked}
+                          className="px-3 py-2 bg-primary text-primary-foreground rounded-xl font-medium"
+                        >
+                          {word}
+                        </button>
+                      ))}
                   </div>
 
                   {/* Available words */}
@@ -682,7 +693,11 @@ const LessonPage: React.FC = () => {
                     {availableWords.map((word, i) => (
                       <button
                         key={i}
-                        onClick={() => !isChecked && handleWordBankClick(word, false)}
+                        onClick={() => {
+                          if (isChecked) return;
+                          speakText(word);
+                          handleWordBankClick(word, false);
+                        }}
                         disabled={isChecked}
                         className="px-3 py-2 bg-muted hover:bg-muted/80 rounded-xl font-medium transition-colors"
                       >

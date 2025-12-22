@@ -5,6 +5,7 @@ import { Mic, MicOff, Volume2, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak } from '@/lib/tts';
 import { getTTSLanguageCode } from '@/lib/languageContent';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 
 interface SpeechExerciseProps {
   targetPhrase: string;
@@ -20,6 +21,7 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
   disabled = false,
 }) => {
   const { t } = useTranslation();
+  const { settings } = useAppSettings();
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
@@ -168,11 +170,15 @@ const SpeechExercise: React.FC<SpeechExerciseProps> = ({
 
   const speakPhrase = useCallback(async () => {
     try {
-      await speak(targetPhrase, languageCode, { rate: 0.75 });
+      await speak(targetPhrase, languageCode, {
+        rate: 0.75,
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
+      });
     } catch (error) {
       console.error('Speech error:', error);
     }
-  }, [targetPhrase, languageCode]);
+  }, [targetPhrase, languageCode, settings.ttsEngine, settings.ttsVoiceURI]);
 
   const retry = useCallback(() => {
     setTranscript('');
