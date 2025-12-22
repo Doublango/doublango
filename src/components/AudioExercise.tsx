@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { speak, cancelSpeech, preloadVoices, isTTSSupported } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
 import { useToast } from '@/hooks/use-toast';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 
 interface AudioExerciseProps {
   correctAnswer: string;
@@ -20,6 +21,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
 }) => {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const { settings } = useAppSettings();
 
   const [typedAnswer, setTypedAnswer] = useState('');
   const [hasPlayed, setHasPlayed] = useState(false);
@@ -62,6 +64,8 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     try {
       await speak(correctAnswer, languageCode, {
         rate: playCount === 0 ? 0.75 : 0.9,
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
       });
 
       if (mountedRef.current) {
@@ -78,7 +82,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     } finally {
       if (mountedRef.current) setIsPlaying(false);
     }
-  }, [audioSupported, correctAnswer, disabled, isPlaying, languageCode, playCount, toast, t]);
+  }, [audioSupported, correctAnswer, disabled, isPlaying, languageCode, playCount, settings.ttsEngine, settings.ttsVoiceURI, toast, t]);
 
   const handleSubmit = () => {
     onAnswer(typedAnswer);

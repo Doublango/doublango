@@ -120,16 +120,20 @@ const Talk: React.FC = () => {
 
   const speakPhrase = useCallback(async (text: string) => {
     if (isSpeaking || !text) return;
-    
+
     setIsSpeaking(true);
     try {
-      await speak(text, languageCode, { rate: 0.7 });
+      await speak(text, languageCode, {
+        rate: 0.7,
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
+      });
     } catch (error) {
       console.error('Speech error:', error);
     } finally {
       setIsSpeaking(false);
     }
-  }, [languageCode, isSpeaking]);
+  }, [languageCode, isSpeaking, settings.ttsEngine, settings.ttsVoiceURI]);
 
   const startListening = useCallback(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
