@@ -1,10 +1,12 @@
 import { getTTSLanguageCode } from "@/lib/languageContent";
+import { playGoogleTTSProxy } from "@/lib/tts/googleTtsProxy";
 
 export type SpeakOptions = {
   rate?: number;
   pitch?: number;
   volume?: number;
 };
+
 
 const getSynth = () => {
   if (typeof window === "undefined") return null;
@@ -57,46 +59,13 @@ const pickBestVoice = (ttsLang: string): SpeechSynthesisVoice | undefined => {
 };
 
 /**
- * Build a Google Translate TTS URL (free, no API key)
+ * Play audio via backend Google Translate TTS proxy (fallback)
+ * This avoids browser/CORS blocks that break direct translate_tts playback.
  */
-const buildGoogleTTSUrl = (text: string, lang: string): string => {
-  const tl = lang.split("-")[0]; // Google uses simple 2-letter codes
-  const encoded = encodeURIComponent(text.slice(0, 200)); // Google limits ~200 chars
-  return `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${tl}&q=${encoded}`;
+const playGoogleTTS = async (text: string, lang: string): Promise<void> => {
+  await playGoogleTTSProxy(text, lang);
 };
 
-/**
- * Play audio via Google Translate TTS (fallback)
- */
-const playGoogleTTS = (text: string, lang: string): Promise<void> => {
-  return new Promise((resolve) => {
-    try {
-      const url = buildGoogleTTSUrl(text, lang);
-      const audio = new Audio(url);
-      audio.crossOrigin = "anonymous";
-      
-      let done = false;
-      const finish = () => {
-        if (done) return;
-        done = true;
-        resolve();
-      };
-
-      audio.onended = finish;
-      audio.onerror = () => {
-        console.warn("Google TTS fallback failed");
-        finish();
-      };
-
-      // Timeout fallback
-      setTimeout(finish, 15000);
-
-      audio.play().catch(() => finish());
-    } catch {
-      resolve();
-    }
-  });
-};
 
 /**
  * Play using Web Speech API
