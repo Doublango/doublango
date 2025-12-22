@@ -28,40 +28,41 @@ const UILanguageDropdown: React.FC<UILanguageDropdownProps> = ({ className, comp
           'flex items-center gap-2 rounded-xl transition-colors',
           compact 
             ? 'p-2 hover:bg-muted' 
-            : 'px-3 py-2 bg-muted/50 hover:bg-muted'
+            : 'px-3 py-2 bg-muted/50 hover:bg-muted border border-border'
         )}
       >
-        <Globe className="w-4 h-4 text-muted-foreground" />
-        {!compact && (
-          <>
-            <span className="text-sm font-medium">{currentLang.nativeName}</span>
-            <ChevronDown className={cn('w-4 h-4 transition-transform', isOpen && 'rotate-180')} />
-          </>
-        )}
+        <Globe className="w-4 h-4 text-primary" />
+        <span className="text-sm font-medium">{currentLang.nativeName}</span>
+        <ChevronDown className={cn('w-4 h-4 transition-transform text-muted-foreground', isOpen && 'rotate-180')} />
       </button>
 
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute top-full right-0 mt-2 w-48 bg-card rounded-xl shadow-lg border border-border z-50 overflow-hidden animate-scale-in">
-            {UI_LANGUAGES.map((lang) => (
-              <button
-                key={lang.code}
-                onClick={() => handleSelect(lang.code)}
-                className={cn(
-                  'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-muted/50 transition-colors',
-                  lang.code === i18n.language && 'bg-primary/10'
-                )}
-              >
-                <div>
-                  <p className="font-medium text-sm">{lang.nativeName}</p>
-                  <p className="text-xs text-muted-foreground">{lang.name}</p>
-                </div>
-                {lang.code === i18n.language && (
-                  <Check className="w-4 h-4 text-primary" />
-                )}
-              </button>
-            ))}
+          <div className="absolute top-full right-0 mt-2 w-52 bg-card rounded-xl shadow-lg border border-border z-50 overflow-hidden animate-scale-in">
+            <div className="p-2 border-b border-border">
+              <p className="text-xs text-muted-foreground px-2">App Language</p>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {UI_LANGUAGES.map((lang) => (
+                <button
+                  key={lang.code}
+                  onClick={() => handleSelect(lang.code)}
+                  className={cn(
+                    'w-full px-4 py-3 text-left flex items-center justify-between hover:bg-muted/50 transition-colors',
+                    lang.code === i18n.language && 'bg-primary/10'
+                  )}
+                >
+                  <div>
+                    <p className="font-medium text-sm">{lang.nativeName}</p>
+                    <p className="text-xs text-muted-foreground">{lang.name}</p>
+                  </div>
+                  {lang.code === i18n.language && (
+                    <Check className="w-4 h-4 text-primary" />
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
         </>
       )}
