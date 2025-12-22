@@ -17,6 +17,10 @@ import PlacementTest from "./pages/PlacementTest";
 import Languages from "./pages/Languages";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import HelpCentre from "./pages/HelpCentre";
+import About from "./pages/About";
+import PracticeReminders from "./pages/PracticeReminders";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,6 +47,10 @@ const App = () => (
             <Route path="/languages" element={<Languages />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/help" element={<HelpCentre />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/reminders" element={<PracticeReminders />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
