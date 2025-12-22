@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import AvatarMascot from '@/components/AvatarMascot';
+import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -119,14 +120,16 @@ const Settings: React.FC = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
-        <div className="flex items-center gap-3 max-w-lg mx-auto">
-          <button onClick={() => navigate('/profile')} className="p-2 hover:bg-muted rounded-full">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="font-bold text-lg">{t('settings.title', 'Settings')}</h1>
-        </div>
-      </header>
+      <AppHeader
+        leftSlot={
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/profile')} className="p-2 hover:bg-muted rounded-full" aria-label={t('common.back', 'Back')}>
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="font-bold text-lg">{t('settings.title', 'Settings')}</h1>
+          </div>
+        }
+      />
 
       <main className="px-4 py-6 max-w-lg mx-auto space-y-6">
         {/* User Info */}

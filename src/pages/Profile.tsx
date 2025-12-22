@@ -4,10 +4,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
+import AppHeader from '@/components/AppHeader';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import { Button } from '@/components/ui/button';
 import { 
-  User, Settings, LogOut, Trophy, Flame, Zap, Star, 
+  Settings, LogOut, Trophy, Flame, Zap, Star, 
   ChevronRight, Bell, Moon, HelpCircle, Shield, Crown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -49,14 +50,14 @@ const Profile: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
-      <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <h1 className="font-bold text-lg">{t('profile.title')}</h1>
+      <AppHeader
+        leftSlot={<h1 className="font-bold text-lg">{t('profile.title')}</h1>}
+        rightSlot={
           <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
             <Settings className="w-5 h-5" />
           </Button>
-        </div>
-      </header>
+        }
+      />
 
       <main className="px-4 py-6 max-w-lg mx-auto space-y-6">
         {/* Profile Card */}
