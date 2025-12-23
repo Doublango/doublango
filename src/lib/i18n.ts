@@ -10,6 +10,7 @@ const resources = {
         home: 'Home',
         learn: 'Learn',
         talk: 'Talk',
+        translate: 'Translate',
         review: 'Review',
         languages: 'Languages',
         profile: 'Profile',

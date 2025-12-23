@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { RotateCcw, Volume2 } from 'lucide-react';
+import { RotateCcw, Volume2, Turtle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, cancelSpeech, preloadVoices, isTTSSupported } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
@@ -56,17 +56,32 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     };
   }, [languageCode, toast, t]);
 
-  const speakText = useCallback(async () => {
+  const speakText = useCallback(async (slow = false) => {
     if (isPlaying || !audioSupported || !correctAnswer || disabled) return;
 
     setIsPlaying(true);
 
     try {
-      await speak(correctAnswer, languageCode, {
-        rate: playCount === 0 ? 0.75 : 0.9,
-        engine: settings.ttsEngine,
-        voiceURI: settings.ttsVoiceURI,
-      });
+      if (slow) {
+        // Speak word by word with pauses
+        const words = correctAnswer.split(/\s+/);
+        for (const word of words) {
+          if (!mountedRef.current) break;
+          await speak(word, languageCode, {
+            rate: 0.5,
+            engine: settings.ttsEngine,
+            voiceURI: settings.ttsVoiceURI,
+          });
+          // Small pause between words
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      } else {
+        await speak(correctAnswer, languageCode, {
+          rate: playCount === 0 ? 0.75 : 0.9,
+          engine: settings.ttsEngine,
+          voiceURI: settings.ttsVoiceURI,
+        });
+      }
 
       if (mountedRef.current) {
         setHasPlayed(true);
@@ -101,7 +116,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     <div className="space-y-6">
       <div className="flex flex-col items-center gap-4">
         <button
-          onClick={speakText}
+          onClick={() => speakText(false)}
           disabled={isPlaying || disabled}
           className={cn(
             'w-32 h-32 rounded-full flex flex-col items-center justify-center transition-all shadow-lg',
@@ -117,16 +132,27 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
           </span>
         </button>
 
-        {playCount > 0 && (
+        <div className="flex items-center gap-4">
+          {playCount > 0 && (
+            <button
+              onClick={() => speakText(false)}
+              disabled={isPlaying || disabled}
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+            >
+              <RotateCcw className="w-4 h-4" />
+              {t('speech.listenAgain', 'Listen again')} ({playCount}x)
+            </button>
+          )}
+          
           <button
-            onClick={speakText}
+            onClick={() => speakText(true)}
             disabled={isPlaying || disabled}
-            className="flex items-center gap-2 text-sm text-primary hover:underline"
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 bg-muted/50 rounded-lg"
           >
-            <RotateCcw className="w-4 h-4" />
-            {t('speech.listenAgain', 'Listen again')} ({playCount}x)
+            <Turtle className="w-4 h-4" />
+            {t('speech.slowPlayback', 'Slow')}
           </button>
-        )}
+        </div>
       </div>
 
       <div className="space-y-4">

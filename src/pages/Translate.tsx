@@ -270,7 +270,7 @@ const Translate: React.FC = () => {
   return (
     <div className="min-h-screen bg-background pb-24">
       <AppHeader
-        leftSlot={<h1 className="font-bold text-lg">{t('nav.translate', 'Translate')}</h1>}
+        leftSlot={<h1 className="font-bold text-lg">Translate</h1>}
       />
 
       <main className="px-4 py-6 max-w-lg mx-auto space-y-4">

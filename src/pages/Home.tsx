@@ -14,7 +14,7 @@ import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { LANGUAGES } from '@/lib/languages';
-import { Play, Target, Flame, Crown, Sparkles } from 'lucide-react';
+import { Play, Target, Flame, Crown, Sparkles, RotateCcw, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Home: React.FC = () => {
@@ -119,17 +119,13 @@ const Home: React.FC = () => {
       <AppHeader
         leftSlot={<LanguageSelector />}
         rightSlot={
-          <>
-            <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-colors"
-              aria-label={t('subscription.upgradeToPremium')}
-            >
-              <Crown className="w-5 h-5 text-banana" />
-            </button>
-            <StatCard type="streak" value={progress?.current_streak || 0} />
-            <StatCard type="lives" value={progress?.lives || 5} maxValue={5} />
-          </>
+          <button
+            onClick={() => setShowUpgradeModal(true)}
+            className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-colors"
+            aria-label={t('subscription.upgradeToPremium')}
+          >
+            <Crown className="w-5 h-5 text-banana" />
+          </button>
         }
       />
 
@@ -208,6 +204,37 @@ const Home: React.FC = () => {
               <Play className="w-6 h-6 mr-2" /> 
               {nextLessonId ? t('common.continue') : t('home.startLearning')}
             </Button>
+          </div>
+        </div>
+
+        {/* Review Section */}
+        <div className="bg-card rounded-3xl p-6 shadow-md">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold flex items-center gap-2">
+              <RotateCcw className="w-5 h-5 text-primary" />
+              <span>Quick Review</span>
+            </h3>
+            <Button variant="ghost" size="sm" onClick={() => navigate('/review')}>
+              See all
+            </Button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate('/review')}
+              className="p-4 bg-primary/10 hover:bg-primary/20 rounded-xl text-left transition-colors"
+            >
+              <Target className="w-6 h-6 text-primary mb-2" />
+              <p className="font-semibold text-sm">Practice</p>
+              <p className="text-xs text-muted-foreground">Review learned words</p>
+            </button>
+            <button
+              onClick={() => navigate('/timed-challenge')}
+              className="p-4 bg-xp/10 hover:bg-xp/20 rounded-xl text-left transition-colors"
+            >
+              <Zap className="w-6 h-6 text-xp mb-2" />
+              <p className="font-semibold text-sm">Speed Round</p>
+              <p className="text-xs text-muted-foreground">60 second challenge</p>
+            </button>
           </div>
         </div>
 
