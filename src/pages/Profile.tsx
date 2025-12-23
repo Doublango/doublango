@@ -25,10 +25,10 @@ const Profile: React.FC = () => {
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const menuItems = [
-    { id: 'notifications', label: t('settings.practiceReminders'), icon: Bell, action: () => navigate('/settings') },
+    { id: 'notifications', label: t('settings.practiceReminders'), icon: Bell, action: () => navigate('/reminders') },
     { id: 'appearance', label: t('settings.preferences'), icon: Moon, action: () => navigate('/settings') },
-    { id: 'privacy', label: t('settings.privacyPolicy'), icon: Shield, action: () => {} },
-    { id: 'help', label: t('settings.helpCenter'), icon: HelpCircle, action: () => {} },
+    { id: 'privacy', label: t('settings.privacyPolicy'), icon: Shield, action: () => navigate('/privacy-policy') },
+    { id: 'help', label: t('settings.helpCenter'), icon: HelpCircle, action: () => navigate('/help') },
   ];
 
   React.useEffect(() => {

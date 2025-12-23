@@ -1,1 +1,10 @@
 project_id = "jbbumyxlioblcgblgedy"
+
+[functions.ai-lesson]
+verify_jwt = false
+
+[functions.google-tts]
+verify_jwt = false
+
+[functions.translate]
+verify_jwt = false
