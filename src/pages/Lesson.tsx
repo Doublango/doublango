@@ -720,39 +720,59 @@ const LessonPage: React.FC = () => {
                 const opts = currentExercise.options as unknown as { pairs?: Array<{left: string; right: string}> } | Array<{left: string; right: string}>;
                 const pairs: Array<{left: string; right: string}> = 'pairs' in opts && Array.isArray(opts.pairs) ? opts.pairs : Array.isArray(opts) ? opts : [];
                 if (pairs.length === 0) return null;
+                
+                // Memoize shuffled right side to prevent re-shuffle on every render
+                const shuffledRightRef = React.useRef<Array<{left: string; right: string}> | null>(null);
+                if (!shuffledRightRef.current || shuffledRightRef.current.length !== pairs.length) {
+                  shuffledRightRef.current = shuffleArray([...pairs]);
+                }
+                const shuffledRight = shuffledRightRef.current;
+                
                 return (
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-3">
                       {pairs.map((pair, i) => (
                         <button
                           key={`left-${i}`}
-                          onClick={() => !matchedPairs.has(pair.left) && handleMatchClick(pair.left)}
+                          onClick={() => {
+                            if (!matchedPairs.has(pair.left)) {
+                              speakText(pair.left);
+                              handleMatchClick(pair.left);
+                            }
+                          }}
                           disabled={matchedPairs.has(pair.left)}
                           className={cn(
-                            'w-full p-4 rounded-xl border-2 transition-all',
+                            'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
                             matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
                             selectedMatch === pair.left && 'border-primary bg-primary/10',
                             !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
                           )}
                         >
-                          {pair.left}
+                          <span>{pair.left}</span>
+                          <Volume2 className="w-4 h-4 text-muted-foreground" />
                         </button>
                       ))}
                     </div>
                     <div className="space-y-3">
-                      {shuffleArray(pairs).map((pair, i) => (
+                      {shuffledRight.map((pair, i) => (
                         <button
                           key={`right-${i}`}
-                           onClick={() => !matchedPairs.has(pair.right) && handleMatchClick(pair.right)}
-                           disabled={matchedPairs.has(pair.right)}
+                          onClick={() => {
+                            if (!matchedPairs.has(pair.right)) {
+                              speakText(pair.right);
+                              handleMatchClick(pair.right);
+                            }
+                          }}
+                          disabled={matchedPairs.has(pair.right)}
                           className={cn(
-                            'w-full p-4 rounded-xl border-2 transition-all',
+                            'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
                             matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
                             selectedMatch === pair.right && 'border-primary bg-primary/10',
                             !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
                           )}
                         >
-                          {pair.right}
+                          <span>{pair.right}</span>
+                          <Volume2 className="w-4 h-4 text-muted-foreground" />
                         </button>
                       ))}
                     </div>

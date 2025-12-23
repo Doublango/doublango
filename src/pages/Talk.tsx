@@ -103,6 +103,17 @@ const Talk: React.FC = () => {
   // Track used phrases per session to avoid repeats
   const [sessionPhrases, setSessionPhrases] = useState<PhraseData[]>([]);
 
+  // Reset when difficulty changes
+  useEffect(() => {
+    // If difficulty changes, reset the current practice session
+    setSelectedCategory(null);
+    setCurrentPhraseIndex(0);
+    setSessionPhrases([]);
+    setTranscript('');
+    setAccuracy(null);
+    setPracticeComplete(false);
+  }, [difficultyLevel]);
+
   // Initialize session phrases when category is selected
   useEffect(() => {
     if (selectedCategory) {
