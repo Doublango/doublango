@@ -10,10 +10,11 @@ import AvatarMascot from '@/components/AvatarMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
-import { Mic2, Volume2, ChevronRight } from 'lucide-react';
+import { Mic2, Volume2, ChevronRight, RotateCcw, Turtle, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
 import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
+import { LANGUAGES } from '@/lib/languages';
 import {
   ADULT_PHRASE_LIBRARY,
   KIDS_PHRASE_LIBRARY,
@@ -21,6 +22,67 @@ import {
   DIFFICULTY_LEVELS,
 } from '@/lib/talkPhrases';
 import type { DifficultyLevel, CategoryData, PhraseData } from '@/lib/talkPhrases';
+
+// 6 levels for kids mode
+const KIDS_DIFFICULTY_LEVELS = [
+  { value: 'beginner' as DifficultyLevel, label: 'Easy 1', emoji: '🌟' },
+  { value: 'beginner' as DifficultyLevel, label: 'Easy 2', emoji: '⭐' },
+  { value: 'basic' as DifficultyLevel, label: 'Medium 1', emoji: '🎯' },
+  { value: 'basic' as DifficultyLevel, label: 'Medium 2', emoji: '🎨' },
+  { value: 'intermediate' as DifficultyLevel, label: 'Hard 1', emoji: '🚀' },
+  { value: 'intermediate' as DifficultyLevel, label: 'Hard 2', emoji: '🏆' },
+];
+
+// Number word to digit mapping for accuracy calculation
+const NUMBER_WORDS: Record<string, string[]> = {
+  '0': ['zero', 'cero', 'zéro', 'null'],
+  '1': ['one', 'uno', 'un', 'une', 'eins', 'ein'],
+  '2': ['two', 'dos', 'deux', 'zwei'],
+  '3': ['three', 'tres', 'trois', 'drei'],
+  '4': ['four', 'cuatro', 'quatre', 'vier'],
+  '5': ['five', 'cinco', 'cinq', 'fünf'],
+  '6': ['six', 'seis', 'sechs'],
+  '7': ['seven', 'siete', 'sept', 'sieben'],
+  '8': ['eight', 'ocho', 'huit', 'acht'],
+  '9': ['nine', 'nueve', 'neuf', 'neun'],
+  '10': ['ten', 'diez', 'dix', 'zehn'],
+  '11': ['eleven', 'once', 'onze', 'elf'],
+  '12': ['twelve', 'doce', 'douze', 'zwölf'],
+  '13': ['thirteen', 'trece', 'treize', 'dreizehn'],
+  '14': ['fourteen', 'catorce', 'quatorze', 'vierzehn'],
+  '15': ['fifteen', 'quince', 'quinze', 'fünfzehn'],
+  '16': ['sixteen', 'dieciséis', 'seize', 'sechzehn'],
+  '17': ['seventeen', 'diecisiete', 'dix-sept', 'siebzehn'],
+  '18': ['eighteen', 'dieciocho', 'dix-huit', 'achtzehn'],
+  '19': ['nineteen', 'diecinueve', 'dix-neuf', 'neunzehn'],
+  '20': ['twenty', 'veinte', 'vingt', 'zwanzig'],
+  '30': ['thirty', 'treinta', 'trente', 'dreißig'],
+  '40': ['forty', 'cuarenta', 'quarante', 'vierzig'],
+  '50': ['fifty', 'cincuenta', 'cinquante', 'fünfzig'],
+  '60': ['sixty', 'sesenta', 'soixante', 'sechzig'],
+  '70': ['seventy', 'setenta', 'soixante-dix', 'siebzig'],
+  '80': ['eighty', 'ochenta', 'quatre-vingts', 'achtzig'],
+  '90': ['ninety', 'noventa', 'quatre-vingt-dix', 'neunzig'],
+  '100': ['hundred', 'cien', 'cent', 'hundert'],
+};
+
+// Normalize spoken text to handle number word/digit equivalence
+const normalizeForComparison = (text: string): string => {
+  let normalized = text.toLowerCase().replace(/[^\w\s]/g, '').trim();
+  
+  // Check if the spoken text is a digit, convert to words
+  for (const [digit, words] of Object.entries(NUMBER_WORDS)) {
+    if (normalized === digit) {
+      return words[0]; // Return the first (English) word equivalent
+    }
+    // Also check if any word variant matches
+    if (words.includes(normalized)) {
+      return words[0]; // Normalize to first variant
+    }
+  }
+  
+  return normalized;
+};
 
 const Talk: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +92,7 @@ const Talk: React.FC = () => {
   const { settings } = useAppSettings();
   const isKidsMode = settings.kidsMode;
   
+  // All hooks must be called unconditionally at the top
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
   const [isListening, setIsListening] = useState(false);
@@ -37,17 +100,26 @@ const Talk: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [practiceComplete, setPracticeComplete] = useState(false);
-  const [difficultyLevel, setDifficultyLevel] = useState<number>(0); // 0=beginner, 1=basic, 2=intermediate, 3=advanced
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(0);
+  const [sessionPhrases, setSessionPhrases] = useState<PhraseData[]>([]);
 
   const languageCode = activeCourse?.language_code || 'es';
   const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
   const extendedContent = EXTENDED_TRANSLATIONS[languageCode] || EXTENDED_TRANSLATIONS.es || {};
+  const currentLanguage = LANGUAGES.find(l => l.code === languageCode);
+  
+  // Use appropriate difficulty levels based on mode
+  const difficultyLevels = isKidsMode ? KIDS_DIFFICULTY_LEVELS : DIFFICULTY_LEVELS;
+  const maxDifficultyIndex = difficultyLevels.length - 1;
   
   // Use kids or adult phrase library
-  const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY;
+  const phraseLibrary = useMemo(() => 
+    isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY,
+    [isKidsMode]
+  );
   
   // Filter categories based on difficulty level
-  const currentDifficulty = DIFFICULTY_LEVELS[difficultyLevel]?.value || 'beginner';
+  const currentDifficulty = difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.value || 'beginner';
   
   const categories = useMemo((): CategoryData[] => {
     const levelOrder: DifficultyLevel[] = ['beginner', 'basic', 'intermediate', 'advanced'];
@@ -100,9 +172,6 @@ const Talk: React.FC = () => {
     return categories.find(c => c.id === selectedCategory) || null;
   }, [selectedCategory, categories]);
 
-  // Track used phrases per session to avoid repeats
-  const [sessionPhrases, setSessionPhrases] = useState<PhraseData[]>([]);
-
   // Reset when difficulty changes
   useEffect(() => {
     // If difficulty changes, reset the current practice session
@@ -143,16 +212,29 @@ const Talk: React.FC = () => {
     };
   }, [selectedCategory, sessionPhrases, currentPhraseIndex, getTranslatedPhrase]);
 
-  const speakPhrase = useCallback(async (text: string) => {
+  const speakPhrase = useCallback(async (text: string, slow = false) => {
     if (isSpeaking || !text) return;
 
     setIsSpeaking(true);
     try {
-      await speak(text, languageCode, {
-        rate: 0.7,
-        engine: settings.ttsEngine,
-        voiceURI: settings.ttsVoiceURI,
-      });
+      if (slow) {
+        // Speak word by word with pauses
+        const words = text.split(/\s+/);
+        for (const word of words) {
+          await speak(word, languageCode, {
+            rate: 0.5,
+            engine: settings.ttsEngine,
+            voiceURI: settings.ttsVoiceURI,
+          });
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      } else {
+        await speak(text, languageCode, {
+          rate: 0.7,
+          engine: settings.ttsEngine,
+          voiceURI: settings.ttsVoiceURI,
+        });
+      }
     } catch (error) {
       console.error('Speech error:', error);
     } finally {
@@ -191,18 +273,28 @@ const Talk: React.FC = () => {
     recognition.start();
   }, [languageCode, getCurrentPhrase]);
 
+  const stopListening = useCallback(() => {
+    setIsListening(false);
+  }, []);
+
   const calculateAccuracy = (target: string, spoken: string): number => {
-    const targetClean = target.toLowerCase().replace(/[^\w\s]/g, '').trim();
-    const spokenClean = spoken.toLowerCase().replace(/[^\w\s]/g, '').trim();
+    const targetNormalized = normalizeForComparison(target);
+    const spokenNormalized = normalizeForComparison(spoken);
     
-    if (targetClean === spokenClean) return 100;
+    if (targetNormalized === spokenNormalized) return 100;
     
-    const targetWords = targetClean.split(/\s+/);
-    const spokenWords = spokenClean.split(/\s+/);
+    const targetWords = targetNormalized.split(/\s+/);
+    const spokenWords = spokenNormalized.split(/\s+/);
     
     let matches = 0;
     targetWords.forEach(word => {
-      if (spokenWords.some(sw => sw.includes(word) || word.includes(sw))) matches++;
+      const wordNorm = normalizeForComparison(word);
+      if (spokenWords.some(sw => {
+        const swNorm = normalizeForComparison(sw);
+        return swNorm.includes(wordNorm) || wordNorm.includes(swNorm) || swNorm === wordNorm;
+      })) {
+        matches++;
+      }
     });
     
     return Math.round((matches / Math.max(targetWords.length, 1)) * 100);
@@ -218,7 +310,7 @@ const Talk: React.FC = () => {
     }
   }, [sessionPhrases.length, currentPhraseIndex]);
 
-  const resetPractice = () => {
+  const resetPractice = useCallback(() => {
     setSelectedCategory(null);
     setCurrentPhraseIndex(0);
     setTranscript('');
@@ -226,8 +318,31 @@ const Talk: React.FC = () => {
     setPracticeComplete(false);
     setSessionPhrases([]);
     cancelSpeech();
-  };
+  }, []);
 
+  // Reset and get fresh batch for same category
+  const resetCurrentCategory = useCallback(() => {
+    if (selectedCategory) {
+      const category = categories.find(c => c.id === selectedCategory);
+      if (category) {
+        const shuffled = [...category.phrases].sort(() => Math.random() - 0.5);
+        setSessionPhrases(shuffled);
+        setCurrentPhraseIndex(0);
+        setTranscript('');
+        setAccuracy(null);
+        setPracticeComplete(false);
+      }
+    }
+  }, [selectedCategory, categories]);
+
+  // Get current values for rendering
+  const category = getCurrentCategory();
+  const phrase = getCurrentPhrase();
+  const progressPercent = category && category.phrases.length > 0 
+    ? ((currentPhraseIndex + 1) / sessionPhrases.length) * 100 
+    : 0;
+
+  // Loading state
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -257,11 +372,7 @@ const Talk: React.FC = () => {
   }
 
   // Active Practice Screen
-  if (selectedCategory) {
-    const category = getCurrentCategory();
-    const phrase = getCurrentPhrase();
-    const progressPercent = ((currentPhraseIndex + 1) / (category?.phrases.length || 1)) * 100;
-
+  if (selectedCategory && category) {
     return (
       <div className="min-h-screen bg-background pb-24">
         <AppHeader
@@ -270,14 +381,20 @@ const Talk: React.FC = () => {
               ← {t('common.back', 'Back')}
             </button>
           }
+          rightSlot={
+            <Button variant="ghost" size="sm" onClick={resetCurrentCategory} className="gap-1">
+              <RotateCcw className="w-4 h-4" />
+              <span className="hidden sm:inline">Reset</span>
+            </Button>
+          }
         />
 
         <main className="px-4 py-6 max-w-lg mx-auto">
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
-              <span>{category?.title}</span>
-              <span>{currentPhraseIndex + 1} / {category?.phrases.length}</span>
+              <span>{category.title}</span>
+              <span>{currentPhraseIndex + 1} / {sessionPhrases.length}</span>
             </div>
             <Progress value={progressPercent} className="h-2" />
           </div>
@@ -293,41 +410,51 @@ const Talk: React.FC = () => {
                   phrase.level === 'intermediate' && "bg-warning/20 text-warning",
                   phrase.level === 'advanced' && "bg-destructive/20 text-destructive"
                 )}>
-                  {DIFFICULTY_LEVELS.find(l => l.value === phrase.level)?.emoji} {phrase.level}
+                  {difficultyLevels.find(l => l.value === phrase.level)?.emoji} {phrase.level}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
               <p className="text-2xl font-bold mb-2">{phrase.translation}</p>
               <p className="text-sm text-muted-foreground mb-4">({phrase.english})</p>
 
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => speakPhrase(phrase.translation)}
-                disabled={isSpeaking}
-              >
-                <Volume2 className={cn("w-4 h-4", isSpeaking && "animate-pulse")} />
-                {isSpeaking ? t('speech.playing', 'Playing...') : t('speech.listen', 'Listen')}
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => speakPhrase(phrase.translation)}
+                  disabled={isSpeaking}
+                >
+                  <Volume2 className={cn("w-4 h-4", isSpeaking && "animate-pulse")} />
+                  {isSpeaking ? t('speech.playing', 'Playing...') : t('speech.listen', 'Listen')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => speakPhrase(phrase.translation, true)}
+                  disabled={isSpeaking}
+                  title="Slow playback"
+                >
+                  <Turtle className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
           )}
 
           {/* Microphone */}
           <div className="flex flex-col items-center gap-4 mb-6">
             <button
-              onClick={isListening ? undefined : startListening}
-              disabled={isListening}
+              onClick={isListening ? stopListening : startListening}
               className={cn(
                 'w-24 h-24 rounded-full flex items-center justify-center transition-all shadow-lg',
                 isListening
-                  ? 'bg-destructive animate-pulse'
+                  ? 'bg-destructive animate-pulse cursor-pointer'
                   : 'bg-primary hover:bg-primary/90'
               )}
             >
               <Mic2 className="w-10 h-10 text-primary-foreground" />
             </button>
             <p className="text-sm text-muted-foreground">
-              {isListening ? t('speech.listening', 'Listening...') : t('speech.tapToSpeak', 'Tap to speak')}
+              {isListening ? t('speech.listening', 'Tap to stop') : t('speech.tapToSpeak', 'Tap to speak')}
             </p>
           </div>
 
@@ -378,53 +505,59 @@ const Talk: React.FC = () => {
       />
 
       <main className="px-4 py-6 max-w-lg mx-auto">
-        {/* Hero */}
+        {/* Hero with Language Indicator */}
         <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-6 text-primary-foreground mb-6">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
               <Mic2 className="w-8 h-8" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-xl font-bold">{isKidsMode ? '🎤 Talk Practice!' : t('speech.title', 'Talk Practice')}</h2>
               <p className="text-sm opacity-80">{isKidsMode ? 'Say it out loud!' : t('speech.subtitle', 'Master pronunciation with audio exercises')}</p>
             </div>
           </div>
+          
+          {/* Language Badge */}
+          {currentLanguage && (
+            <div className="mt-4 flex items-center gap-2">
+              <Globe className="w-4 h-4 opacity-80" />
+              <span className="text-sm font-medium">{currentLanguage.flag} {currentLanguage.name}</span>
+            </div>
+          )}
         </div>
 
-        {/* Level Slider */}
-        {!isKidsMode && (
-          <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
-            <div className="flex justify-between items-center mb-3">
-              <span className="font-medium text-sm">Difficulty Level</span>
-              <span className="text-sm font-bold text-primary">
-                {DIFFICULTY_LEVELS[difficultyLevel]?.emoji} {DIFFICULTY_LEVELS[difficultyLevel]?.label}
-              </span>
-            </div>
-            <Slider
-              value={[difficultyLevel]}
-              onValueChange={(val) => setDifficultyLevel(val[0])}
-              max={3}
-              step={1}
-              className="w-full"
-            />
-            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-              {DIFFICULTY_LEVELS.map((l, i) => (
-                <span key={l.value} className={cn(difficultyLevel === i && "text-primary font-medium")}>
-                  {l.emoji}
-                </span>
-              ))}
-            </div>
+        {/* Level Slider - shown for both adults and kids */}
+        <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
+          <div className="flex justify-between items-center mb-3">
+            <span className="font-medium text-sm">{isKidsMode ? '🎯 Level' : 'Difficulty Level'}</span>
+            <span className="text-sm font-bold text-primary">
+              {difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.emoji} {difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.label}
+            </span>
           </div>
-        )}
+          <Slider
+            value={[difficultyLevel]}
+            onValueChange={(val) => setDifficultyLevel(val[0])}
+            max={maxDifficultyIndex}
+            step={1}
+            className="w-full"
+          />
+          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+            {difficultyLevels.map((l, i) => (
+              <span key={`${l.value}-${i}`} className={cn(difficultyLevel === i && "text-primary font-medium")}>
+                {l.emoji}
+              </span>
+            ))}
+          </div>
+        </div>
 
         {/* Categories */}
         <h3 className="font-bold text-lg mb-4">{isKidsMode ? '🌟 Pick a Topic!' : t('speech.categories', 'Practice Categories')}</h3>
         <div className="space-y-3">
-          {categories.map((category) => (
+          {categories.map((cat) => (
             <button
-              key={category.id}
+              key={cat.id}
               onClick={() => {
-                setSelectedCategory(category.id);
+                setSelectedCategory(cat.id);
                 setCurrentPhraseIndex(0);
                 setTranscript('');
                 setAccuracy(null);
@@ -432,11 +565,11 @@ const Talk: React.FC = () => {
               className="w-full bg-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4 text-left"
             >
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                {category.icon}
+                {cat.icon}
               </div>
               <div className="flex-1">
-                <h4 className="font-bold">{category.title}</h4>
-                <p className="text-sm text-muted-foreground">{category.phrases.length} phrases</p>
+                <h4 className="font-bold">{cat.title}</h4>
+                <p className="text-sm text-muted-foreground">{cat.phrases.length} phrases</p>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
