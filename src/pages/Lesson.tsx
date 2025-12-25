@@ -218,6 +218,29 @@ const LessonPage: React.FC = () => {
 
   const currentExercise = exercises[currentIndex];
 
+  const matchPairs = useMemo(() => {
+    if (!currentExercise || currentExercise.exercise_type !== 'match_pairs' || !currentExercise.options) return null;
+
+    const opts = currentExercise.options as unknown as
+      | { pairs?: Array<{ left: string; right: string }> }
+      | Array<{ left: string; right: string }>;
+
+    const pairs: Array<{ left: string; right: string }> =
+      opts && typeof opts === 'object' && 'pairs' in opts && Array.isArray((opts as any).pairs)
+        ? (((opts as any).pairs as Array<{ left: string; right: string }>) ?? [])
+        : Array.isArray(opts)
+          ? (opts as Array<{ left: string; right: string }>)
+          : [];
+
+    const cleaned = pairs.filter((p) => p?.left && p?.right);
+    return cleaned.length ? cleaned : null;
+  }, [currentExercise?.id, currentExercise?.exercise_type, currentExercise?.options]);
+
+  const shuffledMatchPairsRight = useMemo(() => {
+    if (!matchPairs) return null;
+    return shuffleArray([...matchPairs]);
+  }, [matchPairs, currentExercise?.id]);
+
   const checkAnswer = () => {
     if (!currentExercise) return;
 
@@ -715,70 +738,56 @@ const LessonPage: React.FC = () => {
               )}
 
               {/* Match Pairs */}
-              {currentExercise.exercise_type === 'match_pairs' && currentExercise.options && (() => {
-                // Handle both direct array and {pairs: [...]} formats
-                const opts = currentExercise.options as unknown as { pairs?: Array<{left: string; right: string}> } | Array<{left: string; right: string}>;
-                const pairs: Array<{left: string; right: string}> = 'pairs' in opts && Array.isArray(opts.pairs) ? opts.pairs : Array.isArray(opts) ? opts : [];
-                if (pairs.length === 0) return null;
-                
-                // Memoize shuffled right side to prevent re-shuffle on every render
-                const shuffledRightRef = React.useRef<Array<{left: string; right: string}> | null>(null);
-                if (!shuffledRightRef.current || shuffledRightRef.current.length !== pairs.length) {
-                  shuffledRightRef.current = shuffleArray([...pairs]);
-                }
-                const shuffledRight = shuffledRightRef.current;
-                
-                return (
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-3">
-                      {pairs.map((pair, i) => (
-                        <button
-                          key={`left-${i}`}
-                          onClick={() => {
-                            if (!matchedPairs.has(pair.left)) {
-                              speakText(pair.left);
-                              handleMatchClick(pair.left);
-                            }
-                          }}
-                          disabled={matchedPairs.has(pair.left)}
-                          className={cn(
-                            'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
-                            matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
-                            selectedMatch === pair.left && 'border-primary bg-primary/10',
-                            !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
-                          )}
-                        >
-                          <span>{pair.left}</span>
-                          <Volume2 className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      ))}
-                    </div>
-                    <div className="space-y-3">
-                      {shuffledRight.map((pair, i) => (
-                        <button
-                          key={`right-${i}`}
-                          onClick={() => {
-                            if (!matchedPairs.has(pair.right)) {
-                              speakText(pair.right);
-                              handleMatchClick(pair.right);
-                            }
-                          }}
-                          disabled={matchedPairs.has(pair.right)}
-                          className={cn(
-                            'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
-                            matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
-                            selectedMatch === pair.right && 'border-primary bg-primary/10',
-                            !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
-                          )}
-                        >
-                          <span>{pair.right}</span>
-                          <Volume2 className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      ))}
-                    </div>
+              {currentExercise.exercise_type === 'match_pairs' && matchPairs && shuffledMatchPairsRight && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    {matchPairs.map((pair, i) => (
+                      <button
+                        key={`left-${i}`}
+                        onClick={() => {
+                          if (!matchedPairs.has(pair.left)) {
+                            speakText(pair.left);
+                            handleMatchClick(pair.left);
+                          }
+                        }}
+                        disabled={matchedPairs.has(pair.left)}
+                        className={cn(
+                          'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
+                          matchedPairs.has(pair.left) && 'bg-success/10 border-success opacity-50',
+                          selectedMatch === pair.left && 'border-primary bg-primary/10',
+                          !matchedPairs.has(pair.left) && selectedMatch !== pair.left && 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        <span>{pair.left}</span>
+                        <Volume2 className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))}
                   </div>
-                );
-              })()}
+                  <div className="space-y-3">
+                    {shuffledMatchPairsRight.map((pair, i) => (
+                      <button
+                        key={`right-${i}`}
+                        onClick={() => {
+                          if (!matchedPairs.has(pair.right)) {
+                            speakText(pair.right);
+                            handleMatchClick(pair.right);
+                          }
+                        }}
+                        disabled={matchedPairs.has(pair.right)}
+                        className={cn(
+                          'w-full p-4 rounded-xl border-2 transition-all flex items-center justify-between gap-2',
+                          matchedPairs.has(pair.right) && 'bg-success/10 border-success opacity-50',
+                          selectedMatch === pair.right && 'border-primary bg-primary/10',
+                          !matchedPairs.has(pair.right) && selectedMatch !== pair.right && 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        <span>{pair.right}</span>
+                        <Volume2 className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Speak Answer */}
               {currentExercise.exercise_type === 'speak_answer' && (
