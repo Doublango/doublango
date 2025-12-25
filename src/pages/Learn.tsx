@@ -7,8 +7,9 @@ import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/languages';
-import { Lock, Star, Check, ChevronRight } from 'lucide-react';
+import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 
