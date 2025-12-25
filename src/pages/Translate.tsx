@@ -16,9 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mic, MicOff, Volume2, Copy, Bookmark, BookmarkCheck, ArrowRightLeft, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, Copy, Bookmark, BookmarkCheck, ArrowRightLeft, Loader2, Languages, Turtle } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { speak } from '@/lib/tts';
+import { speak, cancelSpeech } from '@/lib/tts';
 import { LANGUAGES } from '@/lib/languages';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 
@@ -46,6 +46,7 @@ const Translate: React.FC = () => {
   const [isTranslating, setIsTranslating] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlayingSlow, setIsPlayingSlow] = useState(false);
   const [savedPhrases, setSavedPhrases] = useState<SavedPhrase[]>([]);
   const [showSaved, setShowSaved] = useState(false);
 
@@ -139,19 +140,45 @@ const Translate: React.FC = () => {
     setTranslatedText(inputText);
   };
 
-  const playTranslation = async () => {
-    if (!translatedText || isPlaying) return;
+  const playTranslation = async (slow = false) => {
+    if (!translatedText || isPlaying || isPlayingSlow) return;
     
-    setIsPlaying(true);
-    try {
-      await speak(translatedText, toLanguage, {
-        engine: settings.ttsEngine,
-        voiceURI: settings.ttsVoiceURI,
-      });
-    } catch (error) {
-      console.error('TTS error:', error);
-    } finally {
-      setIsPlaying(false);
+    if (slow) {
+      setIsPlayingSlow(true);
+      try {
+        const words = translatedText.split(/\s+/);
+        for (const word of words) {
+          await speak(word, toLanguage, {
+            rate: 0.5,
+            engine: settings.ttsEngine,
+            voiceURI: settings.ttsVoiceURI,
+          });
+          await new Promise(resolve => setTimeout(resolve, 400));
+        }
+      } catch (error) {
+        console.error('TTS error:', error);
+      } finally {
+        setIsPlayingSlow(false);
+      }
+    } else {
+      setIsPlaying(true);
+      try {
+        await speak(translatedText, toLanguage, {
+          engine: settings.ttsEngine,
+          voiceURI: settings.ttsVoiceURI,
+        });
+      } catch (error) {
+        console.error('TTS error:', error);
+      } finally {
+        setIsPlaying(false);
+      }
+    }
+  };
+
+  // Trigger translation manually
+  const handleTranslate = () => {
+    if (inputText.trim()) {
+      translateText(inputText);
     }
   };
 
@@ -316,40 +343,63 @@ const Translate: React.FC = () => {
         {/* Input Area */}
         <div className="bg-card rounded-2xl p-4 shadow-md">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
-              {LANGUAGES.find(l => l.code === fromLanguage)?.name || 'English'}
+            <span className="text-sm text-muted-foreground font-medium">
+              {fromLanguage === 'en' ? 'English' : LANGUAGES.find(l => l.code === fromLanguage)?.name || 'English'}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={isRecording ? stopRecording : startRecording}
-              className={cn(isRecording && 'text-destructive animate-pulse')}
-            >
-              {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={isRecording ? stopRecording : startRecording}
+                className={cn(isRecording && 'text-destructive animate-pulse')}
+              >
+                {isRecording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+              </Button>
+            </div>
           </div>
           <Textarea
             value={inputText}
             onChange={(e) => handleInputChange(e.target.value)}
-            placeholder="Type or speak to translate..."
+            placeholder={fromLanguage === 'en' ? 'Type or speak to translate...' : `Type in ${LANGUAGES.find(l => l.code === fromLanguage)?.name || 'your language'}...`}
             className="min-h-[120px] resize-none border-0 focus-visible:ring-0 p-0 text-lg"
           />
+          {/* Translate Button */}
+          <div className="flex justify-end mt-2">
+            <Button
+              onClick={handleTranslate}
+              disabled={!inputText.trim() || isTranslating}
+              className="gap-2"
+            >
+              <Languages className="w-4 h-4" />
+              {isTranslating ? 'Translating...' : 'Translate'}
+            </Button>
+          </div>
         </div>
 
         {/* Translation Output */}
         <div className="bg-card rounded-2xl p-4 shadow-md">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground font-medium">
               {LANGUAGES.find(l => l.code === toLanguage)?.name}
             </span>
             <div className="flex items-center gap-1">
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={playTranslation}
-                disabled={!translatedText || isPlaying}
+                onClick={() => playTranslation(false)}
+                disabled={!translatedText || isPlaying || isPlayingSlow}
+                title="Play"
               >
                 <Volume2 className={cn("w-5 h-5", isPlaying && "animate-pulse text-primary")} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => playTranslation(true)}
+                disabled={!translatedText || isPlaying || isPlayingSlow}
+                title="Slow playback"
+              >
+                <Turtle className={cn("w-5 h-5", isPlayingSlow && "animate-pulse text-primary")} />
               </Button>
               <Button
                 variant="ghost"
