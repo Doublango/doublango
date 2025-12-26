@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
@@ -10,27 +10,37 @@ import AvatarMascot from '@/components/AvatarMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
-import { Mic2, Volume2, ChevronRight, RotateCcw, Turtle, Globe } from 'lucide-react';
+import { Mic2, Volume2, ChevronRight, RotateCcw, Turtle, Globe, Loader2, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
 import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
 import { LANGUAGES } from '@/lib/languages';
+import { generateAiTalkPhrases, type AiTalkPhrase } from '@/lib/content/aiTalk';
 import {
   ADULT_PHRASE_LIBRARY,
   KIDS_PHRASE_LIBRARY,
   EXTENDED_TRANSLATIONS,
-  DIFFICULTY_LEVELS,
 } from '@/lib/talkPhrases';
 import type { DifficultyLevel, CategoryData, PhraseData } from '@/lib/talkPhrases';
 
-// 6 levels for kids mode
+// 6 CEFR levels for adult mode
+const ADULT_DIFFICULTY_LEVELS = [
+  { value: 'A1' as const, label: 'A1 - Beginner', emoji: '🌱' },
+  { value: 'A2' as const, label: 'A2 - Elementary', emoji: '📗' },
+  { value: 'B1' as const, label: 'B1 - Intermediate', emoji: '📘' },
+  { value: 'B2' as const, label: 'B2 - Upper-Int', emoji: '📙' },
+  { value: 'C1' as const, label: 'C1 - Advanced', emoji: '🔥' },
+  { value: 'C2' as const, label: 'C2 - Mastery', emoji: '🏆' },
+];
+
+// 6 levels for kids mode (mapped to simpler labels)
 const KIDS_DIFFICULTY_LEVELS = [
-  { value: 'beginner' as DifficultyLevel, label: 'Easy 1', emoji: '🌟' },
-  { value: 'beginner' as DifficultyLevel, label: 'Easy 2', emoji: '⭐' },
-  { value: 'basic' as DifficultyLevel, label: 'Medium 1', emoji: '🎯' },
-  { value: 'basic' as DifficultyLevel, label: 'Medium 2', emoji: '🎨' },
-  { value: 'intermediate' as DifficultyLevel, label: 'Hard 1', emoji: '🚀' },
-  { value: 'intermediate' as DifficultyLevel, label: 'Hard 2', emoji: '🏆' },
+  { value: 'A1' as const, label: 'Super Easy', emoji: '🌟' },
+  { value: 'A2' as const, label: 'Easy', emoji: '⭐' },
+  { value: 'B1' as const, label: 'Medium', emoji: '🎯' },
+  { value: 'B2' as const, label: 'Tricky', emoji: '🎨' },
+  { value: 'C1' as const, label: 'Hard', emoji: '🚀' },
+  { value: 'C2' as const, label: 'Super Hard', emoji: '🏆' },
 ];
 
 // Number word to digit mapping for accuracy calculation
@@ -48,21 +58,8 @@ const NUMBER_WORDS: Record<string, string[]> = {
   '10': ['ten', 'diez', 'dix', 'zehn'],
   '11': ['eleven', 'once', 'onze', 'elf'],
   '12': ['twelve', 'doce', 'douze', 'zwölf'],
-  '13': ['thirteen', 'trece', 'treize', 'dreizehn'],
-  '14': ['fourteen', 'catorce', 'quatorze', 'vierzehn'],
-  '15': ['fifteen', 'quince', 'quinze', 'fünfzehn'],
-  '16': ['sixteen', 'dieciséis', 'seize', 'sechzehn'],
-  '17': ['seventeen', 'diecisiete', 'dix-sept', 'siebzehn'],
-  '18': ['eighteen', 'dieciocho', 'dix-huit', 'achtzehn'],
-  '19': ['nineteen', 'diecinueve', 'dix-neuf', 'neunzehn'],
   '20': ['twenty', 'veinte', 'vingt', 'zwanzig'],
   '30': ['thirty', 'treinta', 'trente', 'dreißig'],
-  '40': ['forty', 'cuarenta', 'quarante', 'vierzig'],
-  '50': ['fifty', 'cincuenta', 'cinquante', 'fünfzig'],
-  '60': ['sixty', 'sesenta', 'soixante', 'sechzig'],
-  '70': ['seventy', 'setenta', 'soixante-dix', 'siebzig'],
-  '80': ['eighty', 'ochenta', 'quatre-vingts', 'achtzig'],
-  '90': ['ninety', 'noventa', 'quatre-vingt-dix', 'neunzig'],
   '100': ['hundred', 'cien', 'cent', 'hundert'],
 };
 
@@ -70,19 +67,24 @@ const NUMBER_WORDS: Record<string, string[]> = {
 const normalizeForComparison = (text: string): string => {
   let normalized = text.toLowerCase().replace(/[^\w\s]/g, '').trim();
   
-  // Check if the spoken text is a digit, convert to words
   for (const [digit, words] of Object.entries(NUMBER_WORDS)) {
     if (normalized === digit) {
-      return words[0]; // Return the first (English) word equivalent
+      return words[0];
     }
-    // Also check if any word variant matches
     if (words.includes(normalized)) {
-      return words[0]; // Normalize to first variant
+      return words[0];
     }
   }
   
   return normalized;
 };
+
+interface ActivePhrase {
+  english: string;
+  translation: string;
+  key: string;
+  level: string;
+}
 
 const Talk: React.FC = () => {
   const navigate = useNavigate();
@@ -101,7 +103,12 @@ const Talk: React.FC = () => {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [practiceComplete, setPracticeComplete] = useState(false);
   const [difficultyLevel, setDifficultyLevel] = useState<number>(0);
-  const [sessionPhrases, setSessionPhrases] = useState<PhraseData[]>([]);
+  const [sessionPhrases, setSessionPhrases] = useState<ActivePhrase[]>([]);
+  const [usedPhraseKeys, setUsedPhraseKeys] = useState<Set<string>>(new Set());
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [useAiGeneration, setUseAiGeneration] = useState(true);
+  
+  const recognitionRef = useRef<any>(null);
 
   const languageCode = activeCourse?.language_code || 'es';
   const languageContent = LANGUAGE_CONTENT[languageCode as keyof typeof LANGUAGE_CONTENT] || LANGUAGE_CONTENT.es;
@@ -109,21 +116,32 @@ const Talk: React.FC = () => {
   const currentLanguage = LANGUAGES.find(l => l.code === languageCode);
   
   // Use appropriate difficulty levels based on mode
-  const difficultyLevels = isKidsMode ? KIDS_DIFFICULTY_LEVELS : DIFFICULTY_LEVELS;
+  const difficultyLevels = isKidsMode ? KIDS_DIFFICULTY_LEVELS : ADULT_DIFFICULTY_LEVELS;
   const maxDifficultyIndex = difficultyLevels.length - 1;
+  const currentCefrLevel = difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.value || 'A1';
   
-  // Use kids or adult phrase library
+  // Use kids or adult phrase library for fallback
   const phraseLibrary = useMemo(() => 
     isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY,
     [isKidsMode]
   );
   
-  // Filter categories based on difficulty level
-  const currentDifficulty = difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.value || 'beginner';
+  // Map CEFR to legacy difficulty level for fallback
+  const cefrToLegacy: Record<string, DifficultyLevel> = {
+    'A1': 'beginner',
+    'A2': 'basic',
+    'B1': 'intermediate',
+    'B2': 'advanced',
+    'C1': 'advanced',
+    'C2': 'advanced',
+  };
   
+  const legacyDifficulty = cefrToLegacy[currentCefrLevel] || 'beginner';
+  
+  // Filter categories based on difficulty level (for category selection)
   const categories = useMemo((): CategoryData[] => {
     const levelOrder: DifficultyLevel[] = ['beginner', 'basic', 'intermediate', 'advanced'];
-    const maxLevelIndex = levelOrder.indexOf(currentDifficulty);
+    const maxLevelIndex = levelOrder.indexOf(legacyDifficulty);
 
     return phraseLibrary
       .map((cat) => ({
@@ -131,7 +149,7 @@ const Talk: React.FC = () => {
         phrases: cat.phrases.filter((p) => levelOrder.indexOf(p.level) <= maxLevelIndex),
       }))
       .filter((cat) => cat.phrases.length > 0);
-  }, [phraseLibrary, currentDifficulty]);
+  }, [phraseLibrary, legacyDifficulty]);
 
   // Preload voices when language changes
   useEffect(() => {
@@ -145,72 +163,118 @@ const Talk: React.FC = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Get translated phrase from language content
+  // Get translated phrase from language content (fallback)
   const getTranslatedPhrase = useCallback((phraseKey: string, englishFallback: string): string => {
-    // Check extended translations first (for new phrases)
     if (extendedContent && extendedContent[phraseKey]) {
       return extendedContent[phraseKey];
     }
-    // Then check main language content
     if (languageContent && languageContent[phraseKey]) {
       return languageContent[phraseKey];
     }
-    // Fallback: try Spanish extended
     if (EXTENDED_TRANSLATIONS.es?.[phraseKey]) {
       return EXTENDED_TRANSLATIONS.es[phraseKey];
     }
-    // Try Spanish main
     if (LANGUAGE_CONTENT.es[phraseKey]) {
       return LANGUAGE_CONTENT.es[phraseKey];
     }
-    // Last resort: never show blank
     return englishFallback;
   }, [languageContent, extendedContent]);
 
-  const getCurrentCategory = useCallback(() => {
-    if (!selectedCategory) return null;
-    return categories.find(c => c.id === selectedCategory) || null;
-  }, [selectedCategory, categories]);
+  // Generate AI phrases for a category
+  const generateAiPhrases = useCallback(async (categoryTitle: string) => {
+    setIsGenerating(true);
+    try {
+      const phrases = await generateAiTalkPhrases({
+        languageCode,
+        category: categoryTitle,
+        difficultyLevel: currentCefrLevel,
+        isKidsMode,
+        usedPhrases: Array.from(usedPhraseKeys).slice(-30),
+        batchSize: 10,
+      });
+      
+      if (phrases.length > 0) {
+        const activePhrases: ActivePhrase[] = phrases.map(p => ({
+          english: p.en,
+          translation: p.translation,
+          key: p.key,
+          level: p.level,
+        }));
+        
+        // Mark these as used
+        const newUsed = new Set(usedPhraseKeys);
+        phrases.forEach(p => newUsed.add(p.key));
+        setUsedPhraseKeys(newUsed);
+        
+        return activePhrases;
+      }
+    } catch (error) {
+      console.error('AI generation failed:', error);
+    } finally {
+      setIsGenerating(false);
+    }
+    return null;
+  }, [languageCode, currentCefrLevel, isKidsMode, usedPhraseKeys]);
+
+  // Generate fallback phrases from static library
+  const generateFallbackPhrases = useCallback((categoryId: string): ActivePhrase[] => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return [];
+    
+    const shuffled = [...category.phrases]
+      .filter(p => !usedPhraseKeys.has(p.key))
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 10);
+    
+    // If all used, reset and shuffle all
+    const phrases = shuffled.length > 0 ? shuffled : [...category.phrases].sort(() => Math.random() - 0.5).slice(0, 10);
+    
+    return phrases.map(p => ({
+      english: p.en,
+      translation: getTranslatedPhrase(p.key, p.en),
+      key: p.key,
+      level: p.level,
+    }));
+  }, [categories, usedPhraseKeys, getTranslatedPhrase]);
 
   // Reset when difficulty changes
   useEffect(() => {
-    // If difficulty changes, reset the current practice session
     setSelectedCategory(null);
     setCurrentPhraseIndex(0);
     setSessionPhrases([]);
     setTranscript('');
     setAccuracy(null);
     setPracticeComplete(false);
+    // Clear used phrases for this level to get fresh content
+    setUsedPhraseKeys(new Set());
   }, [difficultyLevel]);
 
   // Initialize session phrases when category is selected
-  useEffect(() => {
-    if (selectedCategory) {
-      const category = categories.find(c => c.id === selectedCategory);
-      if (category) {
-        // Shuffle phrases for this session
-        const shuffled = [...category.phrases].sort(() => Math.random() - 0.5);
-        setSessionPhrases(shuffled);
-        setCurrentPhraseIndex(0);
+  const startCategory = useCallback(async (categoryId: string, categoryTitle: string) => {
+    setSelectedCategory(categoryId);
+    setCurrentPhraseIndex(0);
+    setTranscript('');
+    setAccuracy(null);
+    setPracticeComplete(false);
+    
+    // Try AI generation first
+    if (useAiGeneration) {
+      const aiPhrases = await generateAiPhrases(categoryTitle);
+      if (aiPhrases && aiPhrases.length > 0) {
+        setSessionPhrases(aiPhrases);
+        return;
       }
     }
-  }, [selectedCategory, categories]);
+    
+    // Fallback to static phrases
+    const fallback = generateFallbackPhrases(categoryId);
+    setSessionPhrases(fallback);
+  }, [useAiGeneration, generateAiPhrases, generateFallbackPhrases]);
 
   const getCurrentPhrase = useCallback(() => {
     if (!selectedCategory || sessionPhrases.length === 0) return null;
-    
-    const phraseData = sessionPhrases[currentPhraseIndex];
-    if (!phraseData) return null;
-
-    const translatedPhrase = getTranslatedPhrase(phraseData.key, phraseData.en);
-
-    return {
-      english: phraseData.en,
-      translation: translatedPhrase,
-      key: phraseData.key,
-      level: phraseData.level,
-    };
-  }, [selectedCategory, sessionPhrases, currentPhraseIndex, getTranslatedPhrase]);
+    return sessionPhrases[currentPhraseIndex] || null;
+  }, [selectedCategory, sessionPhrases, currentPhraseIndex]);
 
   const speakPhrase = useCallback(async (text: string, slow = false) => {
     if (isSpeaking || !text) return;
@@ -218,15 +282,14 @@ const Talk: React.FC = () => {
     setIsSpeaking(true);
     try {
       if (slow) {
-        // Speak word by word with pauses
         const words = text.split(/\s+/);
         for (const word of words) {
           await speak(word, languageCode, {
-            rate: 0.5,
+            rate: 0.45,
             engine: settings.ttsEngine,
             voiceURI: settings.ttsVoiceURI,
           });
-          await new Promise(resolve => setTimeout(resolve, 400));
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
       } else {
         await speak(text, languageCode, {
@@ -253,6 +316,7 @@ const Talk: React.FC = () => {
     recognition.continuous = false;
     recognition.interimResults = false;
     recognition.lang = getTTSLanguageCode(languageCode);
+    recognitionRef.current = recognition;
 
     recognition.onstart = () => setIsListening(true);
     
@@ -274,6 +338,11 @@ const Talk: React.FC = () => {
   }, [languageCode, getCurrentPhrase]);
 
   const stopListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
     setIsListening(false);
   }, []);
 
@@ -300,15 +369,29 @@ const Talk: React.FC = () => {
     return Math.round((matches / Math.max(targetWords.length, 1)) * 100);
   };
 
-  const nextPhrase = useCallback(() => {
+  const nextPhrase = useCallback(async () => {
     if (currentPhraseIndex < sessionPhrases.length - 1) {
       setCurrentPhraseIndex(prev => prev + 1);
       setTranscript('');
       setAccuracy(null);
     } else {
+      // Load more phrases or complete
+      if (useAiGeneration && selectedCategory) {
+        const category = categories.find(c => c.id === selectedCategory);
+        if (category) {
+          const morePhrases = await generateAiPhrases(category.title);
+          if (morePhrases && morePhrases.length > 0) {
+            setSessionPhrases(prev => [...prev, ...morePhrases]);
+            setCurrentPhraseIndex(prev => prev + 1);
+            setTranscript('');
+            setAccuracy(null);
+            return;
+          }
+        }
+      }
       setPracticeComplete(true);
     }
-  }, [sessionPhrases.length, currentPhraseIndex]);
+  }, [sessionPhrases.length, currentPhraseIndex, useAiGeneration, selectedCategory, categories, generateAiPhrases]);
 
   const resetPractice = useCallback(() => {
     setSelectedCategory(null);
@@ -318,27 +401,37 @@ const Talk: React.FC = () => {
     setPracticeComplete(false);
     setSessionPhrases([]);
     cancelSpeech();
-  }, []);
+    stopListening();
+  }, [stopListening]);
 
-  // Reset and get fresh batch for same category
-  const resetCurrentCategory = useCallback(() => {
+  // Reset and get fresh batch for same category at same level
+  const resetCurrentCategory = useCallback(async () => {
     if (selectedCategory) {
       const category = categories.find(c => c.id === selectedCategory);
       if (category) {
-        const shuffled = [...category.phrases].sort(() => Math.random() - 0.5);
-        setSessionPhrases(shuffled);
         setCurrentPhraseIndex(0);
         setTranscript('');
         setAccuracy(null);
         setPracticeComplete(false);
+        
+        if (useAiGeneration) {
+          const aiPhrases = await generateAiPhrases(category.title);
+          if (aiPhrases && aiPhrases.length > 0) {
+            setSessionPhrases(aiPhrases);
+            return;
+          }
+        }
+        
+        const fallback = generateFallbackPhrases(selectedCategory);
+        setSessionPhrases(fallback);
       }
     }
-  }, [selectedCategory, categories]);
+  }, [selectedCategory, categories, useAiGeneration, generateAiPhrases, generateFallbackPhrases]);
 
   // Get current values for rendering
-  const category = getCurrentCategory();
+  const category = selectedCategory ? categories.find(c => c.id === selectedCategory) : null;
   const phrase = getCurrentPhrase();
-  const progressPercent = category && category.phrases.length > 0 
+  const progressPercent = sessionPhrases.length > 0 
     ? ((currentPhraseIndex + 1) / sessionPhrases.length) * 100 
     : 0;
 
@@ -359,9 +452,13 @@ const Talk: React.FC = () => {
         <h1 className="text-3xl font-bold mb-2">{t('speech.practiceComplete', 'Practice Complete!')}</h1>
         <p className="text-muted-foreground mb-8">{t('speech.greatPronunciation', 'Great pronunciation practice!')}</p>
         
-        <div className="flex gap-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Button variant="outline" onClick={resetCurrentCategory} className="gap-2">
+            <RotateCcw className="w-4 h-4" />
+            {t('speech.morePhrases', 'More Phrases')}
+          </Button>
           <Button variant="outline" onClick={resetPractice}>
-            {t('speech.tryAnother', 'Try Another')}
+            {t('speech.tryAnother', 'Try Another Category')}
           </Button>
           <Button onClick={() => navigate('/home')} className="gradient-primary text-primary-foreground">
             {t('common.continue', 'Continue')}
@@ -372,7 +469,7 @@ const Talk: React.FC = () => {
   }
 
   // Active Practice Screen
-  if (selectedCategory && category) {
+  if (selectedCategory && (category || sessionPhrases.length > 0)) {
     return (
       <div className="min-h-screen bg-background pb-24">
         <AppHeader
@@ -382,22 +479,39 @@ const Talk: React.FC = () => {
             </button>
           }
           rightSlot={
-            <Button variant="ghost" size="sm" onClick={resetCurrentCategory} className="gap-1">
-              <RotateCcw className="w-4 h-4" />
+            <Button variant="ghost" size="sm" onClick={resetCurrentCategory} className="gap-1" disabled={isGenerating}>
+              {isGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCcw className="w-4 h-4" />}
               <span className="hidden sm:inline">Reset</span>
             </Button>
           }
         />
 
         <main className="px-4 py-6 max-w-lg mx-auto">
+          {/* Language Indicator */}
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <Globe className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">{currentLanguage?.flag} {currentLanguage?.name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+              {difficultyLevels[difficultyLevel]?.emoji} {currentCefrLevel}
+            </span>
+          </div>
+
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
-              <span>{category.title}</span>
-              <span>{currentPhraseIndex + 1} / {sessionPhrases.length}</span>
+              <span>{category?.title || 'Practice'}</span>
+              <span>{currentPhraseIndex + 1} / {sessionPhrases.length}{useAiGeneration && '+'}</span>
             </div>
             <Progress value={progressPercent} className="h-2" />
           </div>
+
+          {/* Generating indicator */}
+          {isGenerating && (
+            <div className="flex items-center justify-center gap-2 mb-4 text-primary">
+              <Sparkles className="w-4 h-4 animate-pulse" />
+              <span className="text-sm">{t('speech.generatingPhrases', 'Generating new phrases...')}</span>
+            </div>
+          )}
 
           {/* Phrase Card */}
           {phrase && (
@@ -405,12 +519,12 @@ const Talk: React.FC = () => {
               <div className="flex items-center gap-2 mb-2">
                 <span className={cn(
                   "text-xs px-2 py-0.5 rounded-full",
-                  phrase.level === 'beginner' && "bg-success/20 text-success",
-                  phrase.level === 'basic' && "bg-primary/20 text-primary",
-                  phrase.level === 'intermediate' && "bg-warning/20 text-warning",
-                  phrase.level === 'advanced' && "bg-destructive/20 text-destructive"
+                  (phrase.level === 'A1' || phrase.level === 'beginner') && "bg-success/20 text-success",
+                  (phrase.level === 'A2' || phrase.level === 'basic') && "bg-primary/20 text-primary",
+                  (phrase.level === 'B1' || phrase.level === 'B2' || phrase.level === 'intermediate') && "bg-warning/20 text-warning",
+                  (phrase.level === 'C1' || phrase.level === 'C2' || phrase.level === 'advanced') && "bg-destructive/20 text-destructive"
                 )}>
-                  {difficultyLevels.find(l => l.value === phrase.level)?.emoji} {phrase.level}
+                  {phrase.level}
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mb-2">{t('speech.sayThisPhrase', 'Say this phrase:')}</p>
@@ -432,9 +546,10 @@ const Talk: React.FC = () => {
                   size="icon"
                   onClick={() => speakPhrase(phrase.translation, true)}
                   disabled={isSpeaking}
-                  title="Slow playback"
+                  title={t('speech.slowPlayback', 'Slow playback')}
+                  className="text-muted-foreground hover:text-primary"
                 >
-                  <Turtle className="w-4 h-4" />
+                  <Turtle className="w-5 h-5" />
                 </Button>
               </div>
             </div>
@@ -460,35 +575,43 @@ const Talk: React.FC = () => {
 
           {/* Result */}
           {transcript && (
-            <div className={cn(
-              'rounded-2xl p-4 mb-6',
-              accuracy !== null && accuracy >= 70 ? 'bg-success/10' : 'bg-muted'
-            )}>
-              <p className="text-sm text-muted-foreground mb-1">{t('speech.youSaid', 'You said:')}</p>
-              <p className="text-lg font-medium mb-2">"{transcript}"</p>
-
+            <div className="bg-card rounded-2xl p-6 shadow-md mb-6">
+              <p className="text-sm text-muted-foreground mb-2">{t('speech.youSaid', 'You said:')}</p>
+              <p className="text-xl font-medium mb-4">{transcript}</p>
+              
               {accuracy !== null && (
-                <div className="flex items-center gap-2">
-                  <Progress value={accuracy} className="flex-1 h-2" />
-                  <span className={cn(
-                    'font-bold',
-                    accuracy >= 70 ? 'text-success' : 'text-muted-foreground'
-                  )}>
-                    {accuracy}%
-                  </span>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm">{t('speech.accuracy', 'Accuracy')}</span>
+                    <span className={cn(
+                      'font-bold text-lg',
+                      accuracy >= 80 && 'text-success',
+                      accuracy >= 50 && accuracy < 80 && 'text-warning',
+                      accuracy < 50 && 'text-destructive'
+                    )}>
+                      {accuracy}%
+                    </span>
+                  </div>
+                  <Progress value={accuracy} className={cn(
+                    "h-3",
+                    accuracy >= 80 && '[&>div]:bg-success',
+                    accuracy >= 50 && accuracy < 80 && '[&>div]:bg-warning',
+                    accuracy < 50 && '[&>div]:bg-destructive'
+                  )} />
+                  
+                  <p className="text-center text-sm mt-2">
+                    {accuracy >= 80 && '🎉 ' + t('speech.excellent', 'Excellent!')}
+                    {accuracy >= 50 && accuracy < 80 && '👍 ' + t('speech.goodTry', 'Good try!')}
+                    {accuracy < 50 && '💪 ' + t('speech.keepPracticing', 'Keep practicing!')}
+                  </p>
                 </div>
               )}
+              
+              <Button onClick={nextPhrase} className="w-full mt-4 gradient-primary text-primary-foreground gap-2">
+                {t('common.continue', 'Continue')}
+                <ChevronRight className="w-4 h-4" />
+              </Button>
             </div>
-          )}
-
-          {/* Next Button */}
-          {accuracy !== null && (
-            <Button
-              onClick={nextPhrase}
-              className="w-full h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"
-            >
-              {t('common.next', 'Next')} <ChevronRight className="w-5 h-5 ml-2" />
-            </Button>
           )}
         </main>
 
@@ -500,38 +623,21 @@ const Talk: React.FC = () => {
   // Category Selection Screen
   return (
     <div className="min-h-screen bg-background pb-24">
-      <AppHeader
-        leftSlot={<h1 className="font-bold text-lg">{t('nav.talk', 'Talk')}</h1>}
-      />
+      <AppHeader />
 
       <main className="px-4 py-6 max-w-lg mx-auto">
-        {/* Hero with Language Indicator */}
-        <div className="bg-gradient-to-r from-primary to-secondary rounded-2xl p-6 text-primary-foreground mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
-              <Mic2 className="w-8 h-8" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-xl font-bold">{isKidsMode ? '🎤 Talk Practice!' : t('speech.title', 'Talk Practice')}</h2>
-              <p className="text-sm opacity-80">{isKidsMode ? 'Say it out loud!' : t('speech.subtitle', 'Master pronunciation with audio exercises')}</p>
-            </div>
-          </div>
-          
-          {/* Language Badge */}
-          {currentLanguage && (
-            <div className="mt-4 flex items-center gap-2">
-              <Globe className="w-4 h-4 opacity-80" />
-              <span className="text-sm font-medium">{currentLanguage.flag} {currentLanguage.name}</span>
-            </div>
-          )}
+        {/* Language Indicator */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <Globe className="w-5 h-5 text-primary" />
+          <span className="text-lg font-medium">{currentLanguage?.flag} {currentLanguage?.name}</span>
         </div>
 
-        {/* Level Slider - shown for both adults and kids */}
+        {/* Difficulty Slider */}
         <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
           <div className="flex justify-between items-center mb-3">
-            <span className="font-medium text-sm">{isKidsMode ? '🎯 Level' : 'Difficulty Level'}</span>
+            <span className="font-medium text-sm">{t('learn.difficultyLevel', 'Difficulty Level')}</span>
             <span className="text-sm font-bold text-primary">
-              {difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.emoji} {difficultyLevels[Math.min(difficultyLevel, maxDifficultyIndex)]?.label}
+              {difficultyLevels[difficultyLevel]?.emoji} {difficultyLevels[difficultyLevel]?.label}
             </span>
           </div>
           <Slider
@@ -543,33 +649,51 @@ const Talk: React.FC = () => {
           />
           <div className="flex justify-between mt-2 text-xs text-muted-foreground">
             {difficultyLevels.map((l, i) => (
-              <span key={`${l.value}-${i}`} className={cn(difficultyLevel === i && "text-primary font-medium")}>
+              <span key={l.value + i} className={cn(difficultyLevel === i && "text-primary font-medium")}>
                 {l.emoji}
               </span>
             ))}
           </div>
         </div>
 
-        {/* Categories */}
-        <h3 className="font-bold text-lg mb-4">{isKidsMode ? '🌟 Pick a Topic!' : t('speech.categories', 'Practice Categories')}</h3>
-        <div className="space-y-3">
+        {/* AI Toggle */}
+        <div className="flex items-center justify-between bg-card rounded-xl p-3 mb-6">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium">{t('speech.aiGeneration', 'AI-Generated Phrases')}</span>
+          </div>
+          <button
+            onClick={() => setUseAiGeneration(!useAiGeneration)}
+            className={cn(
+              "w-12 h-6 rounded-full transition-colors relative",
+              useAiGeneration ? "bg-primary" : "bg-muted"
+            )}
+          >
+            <span className={cn(
+              "absolute top-1 w-4 h-4 rounded-full bg-white transition-transform",
+              useAiGeneration ? "translate-x-7" : "translate-x-1"
+            )} />
+          </button>
+        </div>
+
+        {/* Practice Categories */}
+        <h2 className="font-bold text-lg mb-4">{t('speech.practiceCategories', 'Practice Categories')}</h2>
+        
+        <div className="grid gap-3">
           {categories.map((cat) => (
             <button
               key={cat.id}
-              onClick={() => {
-                setSelectedCategory(cat.id);
-                setCurrentPhraseIndex(0);
-                setTranscript('');
-                setAccuracy(null);
-              }}
-              className="w-full bg-card rounded-2xl p-4 shadow-sm hover:shadow-md transition-all flex items-center gap-4 text-left"
+              onClick={() => startCategory(cat.id, cat.title)}
+              disabled={isGenerating}
+              className="bg-card rounded-xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-all text-left disabled:opacity-50"
             >
-              <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                {cat.icon}
-              </div>
+              <span className="text-3xl">{cat.icon}</span>
               <div className="flex-1">
-                <h4 className="font-bold">{cat.title}</h4>
-                <p className="text-sm text-muted-foreground">{cat.phrases.length} phrases</p>
+                <p className="font-semibold">{cat.title}</p>
+                <p className="text-sm text-muted-foreground">
+                  {cat.phrases.length} {t('speech.phrases', 'phrases')}
+                  {useAiGeneration && <span className="text-primary"> + ∞</span>}
+                </p>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
