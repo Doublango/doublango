@@ -3,6 +3,9 @@ project_id = "jbbumyxlioblcgblgedy"
 [functions.ai-lesson]
 verify_jwt = false
 
+[functions.ai-talk]
+verify_jwt = false
+
 [functions.google-tts]
 verify_jwt = false
 
