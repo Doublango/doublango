@@ -152,10 +152,24 @@ const Learn: React.FC = () => {
         {/* Difficulty Slider */}
         <div className="bg-card rounded-2xl p-4 shadow-sm mb-6">
           <div className="flex justify-between items-center mb-3">
-            <span className="font-medium text-sm">Difficulty Level</span>
-            <span className="text-sm font-bold text-primary">
-              {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
-            </span>
+            <span className="font-medium text-sm">{t('learn.difficultyLevel', 'Difficulty Level')}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-primary">
+                {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Reset to regenerate fresh questions at this level
+                  setCompletedLessonIds(new Set());
+                }}
+                className="h-7 px-2 gap-1 text-muted-foreground hover:text-primary"
+                title={t('learn.resetLevel', 'Reset this level for fresh AI questions')}
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </Button>
+            </div>
           </div>
           <Slider
             value={[difficultyLevel]}
