@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
 import { generateLessonForLanguage } from '@/lib/languageContent';
-import { generateAiLessonExercises } from '@/lib/content/aiLesson';
+import { generateAiLessonExercises, type CEFRLevel } from '@/lib/content/aiLesson';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
@@ -81,12 +81,16 @@ const generateWordBankWords = (correctAnswer: string, existingOptions: unknown):
 
 const LessonPage: React.FC = () => {
   const { lessonId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { progress, updateProgress, refetch, activeCourse } = useUserProgress();
   const { toast } = useToast();
   const { t } = useTranslation();
   const { settings: appSettings } = useAppSettings();
+  
+  // Get CEFR level from URL params (passed from Learn page difficulty slider)
+  const cefrLevel = (searchParams.get('cefr') as CEFRLevel) || 'A1';
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -139,7 +143,10 @@ const LessonPage: React.FC = () => {
         let generated: Array<{ exercise_type: Exercise['exercise_type']; question: string; correct_answer: string; options?: any; hint?: string | null }> = [];
 
         try {
-          const ai = await generateAiLessonExercises(lang, lessonNumber);
+          const ai = await generateAiLessonExercises(lang, lessonNumber, {
+            difficulty: cefrLevel,
+            isKidsMode: appSettings.kidsMode ?? false,
+          });
           generated = ai.map((e) => ({
             exercise_type: e.exercise_type,
             question: e.question,
