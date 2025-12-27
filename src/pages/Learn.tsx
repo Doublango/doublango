@@ -105,7 +105,9 @@ const Learn: React.FC = () => {
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
   const startLesson = (lessonId: string) => {
-    navigate(`/lesson/${lessonId}`);
+    // Pass CEFR level to lesson page for AI question generation
+    const cefrLevel = CEFR_LEVELS[difficultyLevel]?.value || 'A1';
+    navigate(`/lesson/${lessonId}?cefr=${cefrLevel}`);
   };
 
   const isLessonUnlocked = (unitIndex: number, lessonIndex: number): boolean => {
