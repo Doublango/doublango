@@ -14,7 +14,7 @@ import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import { LANGUAGES } from '@/lib/languages';
-import { Play, Target, Flame, Crown, Sparkles, RotateCcw, Zap } from 'lucide-react';
+import { Play, Target, Flame, Crown, Sparkles, RotateCcw, Zap, Gamepad2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Home: React.FC = () => {
@@ -218,22 +218,30 @@ const Home: React.FC = () => {
               See all
             </Button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <button
               onClick={() => navigate('/review')}
               className="p-4 bg-primary/10 hover:bg-primary/20 rounded-xl text-left transition-colors"
             >
               <Target className="w-6 h-6 text-primary mb-2" />
               <p className="font-semibold text-sm">Practice</p>
-              <p className="text-xs text-muted-foreground">Review learned words</p>
+              <p className="text-xs text-muted-foreground">Review words</p>
+            </button>
+            <button
+              onClick={() => navigate('/games')}
+              className="p-4 bg-success/10 hover:bg-success/20 rounded-xl text-left transition-colors"
+            >
+              <Gamepad2 className="w-6 h-6 text-success mb-2" />
+              <p className="font-semibold text-sm">Games</p>
+              <p className="text-xs text-muted-foreground">Fun practice</p>
             </button>
             <button
               onClick={() => navigate('/timed-challenge')}
               className="p-4 bg-xp/10 hover:bg-xp/20 rounded-xl text-left transition-colors"
             >
               <Zap className="w-6 h-6 text-xp mb-2" />
-              <p className="font-semibold text-sm">Speed Round</p>
-              <p className="text-xs text-muted-foreground">60 second challenge</p>
+              <p className="font-semibold text-sm">Speed</p>
+              <p className="text-xs text-muted-foreground">60s challenge</p>
             </button>
           </div>
         </div>

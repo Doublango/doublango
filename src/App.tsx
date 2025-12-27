@@ -22,6 +22,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import HelpCentre from "./pages/HelpCentre";
 import About from "./pages/About";
 import PracticeReminders from "./pages/PracticeReminders";
+import Games from "./pages/Games";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/review/:mode" element={<Review />} />
             <Route path="/talk" element={<Talk />} />
             <Route path="/translate" element={<Translate />} />
+            <Route path="/games" element={<Games />} />
             <Route path="/timed-challenge" element={<TimedChallenge />} />
             <Route path="/placement-test" element={<PlacementTest />} />
             <Route path="/languages" element={<Languages />} />
