@@ -1,7 +1,14 @@
 import type { Database, Json } from "@/integrations/supabase/types";
 
+// Extended exercise types beyond the DB enum
+export type ExtendedExerciseType = 
+  | Database["public"]["Enums"]["exercise_type"] 
+  | "listen_and_select" 
+  | "write_in_english" 
+  | "flashcard";
+
 export type AiExercise = {
-  exercise_type: Database["public"]["Enums"]["exercise_type"];
+  exercise_type: ExtendedExerciseType;
   question: string;
   correct_answer: string;
   options?: Json;
@@ -15,6 +22,7 @@ export interface AiLessonOptions {
   isKidsMode?: boolean;
   topicHint?: string;
   usedQuestions?: string[];
+  sectionNumber?: number;
 }
 
 export const generateAiLessonExercises = async (
@@ -23,16 +31,6 @@ export const generateAiLessonExercises = async (
   options?: AiLessonOptions
 ): Promise<AiExercise[]> => {
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-lesson`;
-
-  // Map CEFR level to difficulty string expected by edge function
-  const difficultyMap: Record<CEFRLevel, string> = {
-    A1: "beginner",
-    A2: "basic",
-    B1: "intermediate",
-    B2: "advanced",
-    C1: "fluent",
-    C2: "mastery",
-  };
 
   const res = await fetch(url, {
     method: "POST",
@@ -44,10 +42,11 @@ export const generateAiLessonExercises = async (
     body: JSON.stringify({
       languageCode,
       lessonNumber,
-      difficulty: options?.difficulty ? difficultyMap[options.difficulty] : undefined,
+      difficulty: options?.difficulty || "A1",
       isKidsMode: options?.isKidsMode ?? false,
       topicHint: options?.topicHint,
       usedQuestions: options?.usedQuestions ?? [],
+      sectionNumber: options?.sectionNumber ?? 0,
     }),
   });
 

@@ -1,8 +1,14 @@
 import type { Database, Json } from "@/integrations/supabase/types";
 import { LANGUAGE_CONTENT } from "@/lib/languageContent";
+import type { ExtendedExerciseType } from "@/lib/content/aiLesson";
 
-type Exercise = Database["public"]["Tables"]["exercises"]["Row"];
+type DBExercise = Database["public"]["Tables"]["exercises"]["Row"];
 type LanguageCode = Database["public"]["Enums"]["language_code"];
+
+// Extended exercise type that supports AI-generated types
+interface Exercise extends Omit<DBExercise, 'exercise_type'> {
+  exercise_type: ExtendedExerciseType;
+}
 
 // Comprehensive phrase pool with English keys and translations
 const ENGLISH_PHRASE_POOL: Array<{ key: string; en: string }> = [
@@ -146,7 +152,7 @@ const buildWordHints = (correctAnswer: string, pool: string[], seed: number) => 
 };
 
 export const sanitizeLessonExercises = (
-  exercises: Exercise[] | null | undefined,
+  exercises: Exercise[] | DBExercise[] | null | undefined,
   languageCode: LanguageCode
 ): Exercise[] => {
   if (!exercises?.length) return [];
