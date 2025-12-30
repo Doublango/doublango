@@ -16,12 +16,17 @@ import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
 import { generateLessonForLanguage } from '@/lib/languageContent';
-import { generateAiLessonExercises, type CEFRLevel } from '@/lib/content/aiLesson';
+import { generateAiLessonExercises, type CEFRLevel, type ExtendedExerciseType } from '@/lib/content/aiLesson';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
-type Exercise = Database['public']['Tables']['exercises']['Row'];
+type DBExercise = Database['public']['Tables']['exercises']['Row'];
 type Lesson = Database['public']['Tables']['lessons']['Row'];
+
+// Extended exercise type that includes AI-generated types
+interface Exercise extends Omit<DBExercise, 'exercise_type'> {
+  exercise_type: ExtendedExerciseType;
+}
 
 interface ExerciseOption {
   text: string;
@@ -257,11 +262,13 @@ const LessonPage: React.FC = () => {
     switch (currentExercise.exercise_type) {
       case 'multiple_choice':
       case 'select_sentence':
+      case 'listen_and_select':
         correct = selectedAnswer?.toLowerCase().trim() === correctAnswer;
         break;
       case 'translation':
       case 'fill_blank':
       case 'type_what_you_hear':
+      case 'write_in_english':
         correct = typedAnswer.toLowerCase().trim() === correctAnswer;
         break;
       case 'word_bank':
@@ -269,6 +276,10 @@ const LessonPage: React.FC = () => {
         break;
       case 'match_pairs':
         // Match pairs are checked as you go, so if we get here, it's complete
+        correct = true;
+        break;
+      case 'flashcard':
+        // Flashcards are self-graded - user says if they got it
         correct = true;
         break;
     }
@@ -805,6 +816,119 @@ const LessonPage: React.FC = () => {
                   disabled={isChecked}
                 />
               )}
+
+              {/* Listen and Select - listen to audio and pick correct meaning */}
+              {currentExercise.exercise_type === 'listen_and_select' && currentExercise.options && (
+                <div className="space-y-4">
+                  <button
+                    onClick={() => speakText(currentExercise.question.replace('Listen: ', '').replace('Select the meaning of: ', ''))}
+                    className="w-full bg-primary/10 hover:bg-primary/20 rounded-2xl p-6 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Volume2 className="w-8 h-8 text-primary" />
+                    <span className="font-medium text-primary text-lg">Listen Again</span>
+                  </button>
+                  <div className="space-y-3">
+                    {normalizeOptions(currentExercise.options).map((optionText, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          if (isChecked) return;
+                          setSelectedAnswer(optionText);
+                        }}
+                        disabled={isChecked}
+                        className={cn(
+                          'w-full p-4 rounded-2xl border-2 text-left transition-all',
+                          selectedAnswer === optionText && !isChecked && 'border-primary bg-primary/10',
+                          isChecked && optionText.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
+                          isChecked && selectedAnswer === optionText && !isCorrect && 'border-destructive bg-destructive/10',
+                          !selectedAnswer && !isChecked && 'border-border hover:border-primary/50'
+                        )}
+                      >
+                        {optionText}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Write in English - translate from target language to English */}
+              {currentExercise.exercise_type === 'write_in_english' && (
+                <div className="space-y-4">
+                  <div className="bg-primary/10 rounded-2xl p-4 text-center">
+                    <p className="text-xl font-semibold">{currentExercise.question}</p>
+                    <button
+                      onClick={() => speakText(currentExercise.question)}
+                      className="mt-2 text-primary hover:text-primary/80"
+                    >
+                      <Volume2 className="w-5 h-5 inline mr-1" /> Listen
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={typedAnswer}
+                    onChange={(e) => setTypedAnswer(e.target.value)}
+                    disabled={isChecked}
+                    placeholder="Type the English translation..."
+                    className={cn(
+                      'w-full p-4 rounded-2xl border-2 bg-card text-lg',
+                      isChecked && isCorrect && 'border-success bg-success/10',
+                      isChecked && !isCorrect && 'border-destructive bg-destructive/10',
+                      !isChecked && 'border-border focus:border-primary focus:ring-2 focus:ring-primary/20'
+                    )}
+                  />
+                  {isChecked && !isCorrect && (
+                    <p className="text-sm text-muted-foreground">
+                      Correct answer: <span className="text-success font-medium">{currentExercise.correct_answer}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Flashcard - vocabulary review */}
+              {currentExercise.exercise_type === 'flashcard' && (() => {
+                const opts = currentExercise.options as { front?: string; back?: string } | null;
+                const front = opts?.front || currentExercise.question;
+                const back = opts?.back || currentExercise.correct_answer;
+                return (
+                  <div className="space-y-4">
+                    <div 
+                      className={cn(
+                        'relative min-h-48 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all duration-300',
+                        !isChecked ? 'bg-primary/10 hover:bg-primary/20' : 'bg-success/10'
+                      )}
+                      onClick={() => {
+                        if (!isChecked) {
+                          speakText(back);
+                          setIsChecked(true);
+                          setIsCorrect(true);
+                          setXpEarned(prev => prev + 10);
+                          setMonkeyMood('excited');
+                          playSound('correct');
+                        }
+                      }}
+                    >
+                      <p className="text-2xl font-bold mb-2">{front}</p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          speakText(front);
+                        }}
+                        className="text-primary hover:text-primary/80"
+                      >
+                        <Volume2 className="w-5 h-5" />
+                      </button>
+                      {!isChecked && (
+                        <p className="text-sm text-muted-foreground mt-4">Tap to reveal answer</p>
+                      )}
+                      {isChecked && (
+                        <div className="mt-4 pt-4 border-t border-border w-full">
+                          <p className="text-xl text-success font-semibold">{back}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </>
         )}
@@ -813,15 +937,17 @@ const LessonPage: React.FC = () => {
       {/* Footer */}
       <footer className="sticky bottom-0 bg-card border-t border-border p-4">
         <div className="max-w-lg mx-auto">
-          {!isChecked && currentExercise?.exercise_type !== 'speak_answer' ? (
+          {!isChecked && currentExercise?.exercise_type !== 'speak_answer' && currentExercise?.exercise_type !== 'flashcard' ? (
             <Button
               onClick={checkAnswer}
               disabled={
                 (currentExercise?.exercise_type === 'multiple_choice' && !selectedAnswer) ||
                 (currentExercise?.exercise_type === 'select_sentence' && !selectedAnswer) ||
+                (currentExercise?.exercise_type === 'listen_and_select' && !selectedAnswer) ||
                 (currentExercise?.exercise_type === 'translation' && !typedAnswer) ||
                 (currentExercise?.exercise_type === 'fill_blank' && !typedAnswer) ||
                 (currentExercise?.exercise_type === 'type_what_you_hear' && !typedAnswer) ||
+                (currentExercise?.exercise_type === 'write_in_english' && !typedAnswer) ||
                 (currentExercise?.exercise_type === 'word_bank' && wordBankAnswer.length === 0)
               }
               className="w-full h-14 text-lg font-bold rounded-2xl gradient-primary text-primary-foreground"

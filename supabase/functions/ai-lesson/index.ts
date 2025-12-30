@@ -13,7 +13,10 @@ type ExerciseType =
   | "type_what_you_hear"
   | "speak_answer"
   | "word_bank"
-  | "select_sentence";
+  | "select_sentence"
+  | "listen_and_select"
+  | "write_in_english"
+  | "flashcard";
 
 type LanguageCode = string;
 
@@ -35,24 +38,21 @@ const clean = (v: unknown) => String(v ?? "").trim();
 
 // BANNED PATTERNS - these overused sentences must NEVER appear
 const BANNED_PATTERNS = [
-  // Basic "I am X" patterns
   /\bi am (happy|sad|tired|hungry|thirsty|fine|good|bad|okay|great|well|cold|hot|ready|busy)\b/i,
-  // Basic animal patterns
   /\bthe (cat|dog|bird|fish) is (big|small|black|white|brown|cute|nice|good|bad)\b/i,
-  // Basic "he/she is X" patterns
   /\b(she|he) is (nice|tall|short|young|old|happy|sad|good|bad)\b/i,
-  // Basic "it is X" patterns  
   /\bit is (good|bad|nice|big|small|hot|cold|new|old)\b/i,
-  // "This is a X" patterns
   /\bthis is (a|an|the)?\s*(book|pen|apple|cat|dog|table|chair|car)\b/i,
-  // Placeholder answers
   /\baudio transcript\b/i,
   /\bword bank\b/i,
   /\btype what you hear\b/i,
-  // Single word answers (unless vocab drill)
   /^(yes|no|hello|hi|bye|good|bad|nice|okay|ok)$/i,
-  // Fill blank "I ___ happy"
   /\bi _+ (happy|sad|tired|good|bad|fine)\b/i,
+  /placeholder/i,
+  /example/i,
+  /translation1/i,
+  /word\s?\d+/i,
+  /option\s?\d+/i,
 ];
 
 const containsBannedPattern = (text: string): boolean => {
@@ -60,7 +60,7 @@ const containsBannedPattern = (text: string): boolean => {
   return BANNED_PATTERNS.some(pattern => pattern.test(text));
 };
 
-// Validate word_bank exercises - words must actually form the answer
+// Validate word_bank exercises
 const validateWordBank = (ex: AiExercise): AiExercise => {
   if (ex.exercise_type !== "word_bank") return ex;
   
@@ -96,6 +96,96 @@ const LANGUAGE_NAMES: Record<string, string> = {
   ca: "Catalan", th: "Thai"
 };
 
+// Topic pools organized by CEFR level with 10 unique scenarios each
+const TOPIC_POOLS: Record<string, string[][]> = {
+  A1: [
+    ["greeting a shopkeeper when entering a store", "asking a stranger for the time", "thanking someone for holding a door"],
+    ["introducing yourself at a party", "asking someone's nationality", "saying where you're from"],
+    ["ordering a coffee with milk", "asking for a glass of water", "requesting the bill at a café"],
+    ["asking where the bathroom is", "getting directions to the bus stop", "finding the train station"],
+    ["buying a single train ticket", "asking about departure times", "requesting a round-trip ticket"],
+    ["telling someone your phone number", "saying today's date", "asking what time a store opens"],
+    ["describing if it's sunny today", "asking if rain is expected", "saying it's cold outside"],
+    ["asking how much something costs", "saying you want to buy bread", "paying with cash or card"],
+    ["apologizing for being late", "excusing yourself to pass by", "saying you don't understand"],
+    ["introducing your mother", "asking about siblings", "describing your family size"],
+  ],
+  A2: [
+    ["booking a hotel room for two nights", "asking about breakfast included", "requesting a quiet room"],
+    ["describing a headache to a pharmacist", "asking for cold medicine", "explaining allergies"],
+    ["making a doctor appointment", "describing stomach pain", "asking about wait time"],
+    ["discussing favorite sports", "inviting someone to play tennis", "talking about weekend hiking plans"],
+    ["explaining you're looking for a museum", "asking about nearby restaurants", "finding a gas station"],
+    ["ordering vegetarian food at a restaurant", "asking about ingredients", "requesting no spice"],
+    ["asking for a different size shoe", "requesting a receipt", "asking about a sale"],
+    ["describing your morning routine", "talking about what you eat for lunch", "explaining your work schedule"],
+    ["asking when the next bus arrives", "reporting a delayed flight", "asking about platform numbers"],
+    ["describing your job responsibilities", "asking about someone's profession", "discussing workplace hours"],
+  ],
+  B1: [
+    ["recommending a movie you saw", "explaining why you liked a book", "discussing a TV series ending"],
+    ["sharing a memorable vacation story", "describing a place you visited", "talking about travel mishaps"],
+    ["explaining your career goals", "discussing education plans", "talking about learning a new skill"],
+    ["calling about a broken appliance", "explaining an internet problem", "asking for a refund"],
+    ["leaving a voicemail for a doctor", "scheduling a business call", "confirming an appointment"],
+    ["writing an email about a meeting", "explaining you'll be late", "requesting information professionally"],
+    ["discussing a local event", "talking about news you heard", "sharing community updates"],
+    ["bargaining at a market", "discussing payment terms", "asking for a discount on services"],
+    ["comparing your city to the capital", "describing neighborhood changes", "explaining why you moved"],
+    ["discussing recycling habits", "talking about saving water", "explaining energy conservation"],
+  ],
+  B2: [
+    ["debating remote work benefits", "discussing work-life challenges", "arguing about flexible hours"],
+    ["explaining how to use a software", "giving instructions for a task", "describing a process step by step"],
+    ["discussing what you'd do if you won the lottery", "talking about past regrets", "imagining alternative life choices"],
+    ["writing a complaint about a product", "demanding a refund professionally", "escalating a service issue"],
+    ["presenting an idea to colleagues", "defending your position in a debate", "summarizing a research topic"],
+    ["debating climate change solutions", "discussing renewable energy", "arguing about environmental policies"],
+    ["comparing cultural traditions", "discussing social norms differences", "explaining cultural misunderstandings"],
+    ["negotiating a salary increase", "discussing lease terms", "agreeing on project deadlines"],
+    ["discussing diet and nutrition", "debating exercise routines", "explaining stress management techniques"],
+    ["describing a historical event's impact", "discussing causes of a war", "explaining economic changes"],
+  ],
+  C1: [
+    ["analyzing different political viewpoints", "discussing election systems", "debating government policies"],
+    ["presenting research findings", "supporting arguments with evidence", "responding to academic criticism"],
+    ["explaining tenant rights", "discussing legal contracts", "navigating bureaucratic systems"],
+    ["debating ethical dilemmas", "discussing moral philosophy", "arguing about societal values"],
+    ["conducting a business negotiation", "discussing merger implications", "explaining market strategies"],
+    ["analyzing themes in literature", "discussing author intentions", "comparing literary movements"],
+    ["explaining a scientific theory", "describing an experiment", "discussing research methodology"],
+    ["using idiomatic expressions naturally", "understanding proverbs", "using figurative language"],
+    ["critiquing an art exhibition", "discussing film cinematography", "analyzing music composition"],
+    ["mediating a workplace dispute", "facilitating a group discussion", "resolving conflicting viewpoints"],
+  ],
+  C2: [
+    ["delivering a keynote speech", "improvising in high-pressure situations", "handling hostile interview questions"],
+    ["writing satirical commentary", "using irony effectively", "crafting nuanced arguments"],
+    ["translating complex documents", "explaining untranslatable concepts", "bridging cultural language gaps"],
+    ["leading philosophical discussions", "defending thesis statements", "engaging in Socratic dialogue"],
+    ["analyzing economic indicators", "predicting market trends", "explaining monetary policy"],
+    ["discussing medical ethics", "debating healthcare systems", "analyzing public health policy"],
+    ["explaining quantum concepts", "discussing technological singularity", "debating AI consciousness"],
+    ["analyzing geopolitical conflicts", "discussing diplomatic negotiations", "explaining international law"],
+    ["critiquing contemporary art", "discussing avant-garde movements", "analyzing cultural phenomena"],
+    ["crafting compelling narratives", "using rhetorical devices masterfully", "adapting communication styles"],
+  ],
+};
+
+// Kids mode topics
+const KIDS_TOPICS = [
+  ["naming zoo animals", "describing pet sounds", "counting farm animals"],
+  ["naming rainbow colors", "describing shapes", "finding matching pairs"],
+  ["ordering ice cream flavors", "naming fruits you like", "describing your favorite snack"],
+  ["introducing your family", "describing your parents", "talking about siblings"],
+  ["naming playground equipment", "describing outdoor games", "saying what you like to play"],
+  ["naming school supplies", "describing your teacher", "talking about your favorite subject"],
+  ["naming body parts", "describing how you feel", "talking about getting hurt"],
+  ["describing today's weather", "naming seasons", "saying what clothes to wear"],
+  ["counting toys", "describing your favorite toy", "sharing with friends"],
+  ["naming days of the week", "describing your morning routine", "talking about bedtime"],
+];
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -103,13 +193,14 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { languageCode, lessonNumber, difficulty, isKidsMode, topicHint, usedQuestions } = body;
+    const { languageCode, lessonNumber, difficulty, isKidsMode, topicHint, usedQuestions, sectionNumber } = body;
     const lang = clean(languageCode) as LanguageCode;
     const lessonNo = clampLesson(lessonNumber);
     const diffLevel = clean(difficulty) || "beginner";
     const kidsMode = Boolean(isKidsMode);
     const topic = clean(topicHint) || "";
-    const excludeQuestions = Array.isArray(usedQuestions) ? usedQuestions.slice(0, 20) : [];
+    const excludeQuestions = Array.isArray(usedQuestions) ? usedQuestions.slice(0, 100) : [];
+    const section = Number(sectionNumber) || 0;
 
     if (!lang) {
       return new Response(JSON.stringify({ error: "languageCode is required" }), {
@@ -126,177 +217,113 @@ serve(async (req) => {
       });
     }
 
-    // Determine CEFR level based on difficulty slider value
+    // Map difficulty to CEFR level
     let cefrLevel = "A1";
     let sentenceLength = "3-5 words";
     let complexity = "basic vocabulary and present tense only";
     
-    if (diffLevel === "mastery" || diffLevel === "expert" || lessonNo > 80) {
+    if (diffLevel === "mastery" || diffLevel === "C2" || lessonNo > 100) {
+      cefrLevel = "C2";
+      sentenceLength = "15-25 words";
+      complexity = "native-level fluency, idioms, nuanced expressions, all tenses";
+    } else if (diffLevel === "expert" || diffLevel === "C1" || lessonNo > 80) {
       cefrLevel = "C1";
       sentenceLength = "12-20 words";
       complexity = "advanced grammar, idioms, subjunctive mood, complex clauses";
-    } else if (diffLevel === "fluent" || lessonNo > 60) {
+    } else if (diffLevel === "fluent" || diffLevel === "B2" || lessonNo > 60) {
       cefrLevel = "B2";
       sentenceLength = "10-15 words";
       complexity = "past and future tenses, conditional, relative clauses";
-    } else if (diffLevel === "advanced" || lessonNo > 40) {
+    } else if (diffLevel === "advanced" || diffLevel === "B1" || lessonNo > 40) {
       cefrLevel = "B1";
       sentenceLength = "8-12 words";
       complexity = "past tense, future tense, modal verbs, conjunctions";
-    } else if (diffLevel === "intermediate" || lessonNo > 20) {
+    } else if (diffLevel === "intermediate" || diffLevel === "A2" || lessonNo > 20) {
       cefrLevel = "A2";
       sentenceLength = "5-8 words";
       complexity = "simple past, basic conjunctions, common expressions";
     } else if (diffLevel === "basic" || lessonNo > 10) {
-      cefrLevel = "A2";
+      cefrLevel = "A1";
       sentenceLength = "4-7 words";
       complexity = "present tense, numbers, colors, family members";
     }
 
     const languageName = LANGUAGE_NAMES[lang] || lang.toUpperCase();
 
-    // Topic pools for variety - different for each CEFR level
-    const topicPools: Record<string, string[]> = {
-      A1: [
-        "greeting someone formally and informally at different times of day",
-        "introducing yourself and asking someone's name and origin",
-        "ordering coffee, tea, water and snacks at a café",
-        "asking for directions to the train station, airport, and hotel",
-        "buying train, bus, and metro tickets",
-        "counting from 1-100 and telling the time",
-        "describing today's weather and asking about tomorrow",
-        "asking prices when shopping for groceries",
-        "saying please, thank you, excuse me, and sorry",
-        "family members and describing relationships",
-      ],
-      A2: [
-        "making hotel reservations and asking about amenities",
-        "describing symptoms and buying medicine at a pharmacy",
-        "making appointments at the doctor or dentist",
-        "talking about hobbies, sports, and weekend activities",
-        "giving and following street directions with landmarks",
-        "ordering at a restaurant with dietary preferences",
-        "shopping for clothes, asking about sizes and colors",
-        "describing your daily routine and schedule",
-        "asking about transportation schedules and delays",
-        "talking about your job or studies",
-      ],
-      B1: [
-        "expressing opinions about movies, books, and TV shows",
-        "describing memorable travel experiences in the past",
-        "discussing future plans, goals, and dreams",
-        "explaining a problem to customer service or tech support",
-        "making formal phone calls for appointments or inquiries",
-        "writing and discussing emails for work or school",
-        "discussing current events and local news",
-        "negotiating prices at a market or for services",
-        "describing your hometown and comparing it to other cities",
-        "talking about environmental issues and recycling",
-      ],
-      B2: [
-        "debating social topics like work-life balance",
-        "explaining complex processes and giving instructions",
-        "discussing hypothetical situations and their consequences",
-        "making formal complaints about products or services",
-        "presenting ideas in a meeting or academic setting",
-        "discussing climate change and sustainability",
-        "analyzing differences between cultures",
-        "negotiating terms in business or rental agreements",
-        "discussing health, fitness, and lifestyle choices",
-        "explaining historical events and their significance",
-      ],
-      C1: [
-        "nuanced political discussions with multiple viewpoints",
-        "academic presentations with supporting arguments",
-        "discussing legal rights and bureaucratic procedures",
-        "philosophical debates about ethics and morality",
-        "advanced business negotiations with technical terms",
-        "literary analysis discussing themes and symbolism",
-        "scientific explanations of natural phenomena",
-        "using idioms, proverbs, and figurative language",
-        "discussing art movements and cultural criticism",
-        "handling conflict resolution and mediation",
-      ],
-    };
-
-    // Kids mode has simpler, fun topics
-    const kidsTopics = [
-      "animals and pets - cats, dogs, birds, fish",
-      "colors and shapes - circles, squares, rainbows",
-      "food and drinks kids love - pizza, ice cream, juice",
-      "family members - mom, dad, brother, sister, grandparents",
-      "playground activities - swings, slides, playing ball",
-      "classroom objects - pencil, book, desk, teacher",
-      "body parts - head, arms, legs, eyes, nose",
-      "weather - sunny, rainy, cloudy, snow",
-      "numbers and counting toys",
-      "days of the week and daily activities",
-    ];
-
-    const levelTopics = kidsMode ? kidsTopics : (topicPools[cefrLevel] || topicPools["A1"]);
-    // If topic hint provided, use it; otherwise random selection
-    const selectedTopics = topic 
-      ? [topic, ...levelTopics.filter(t => t !== topic).sort(() => 0.5 - Math.random()).slice(0, 2)]
-      : levelTopics.sort(() => 0.5 - Math.random()).slice(0, 3);
+    // Select topics based on CEFR level, section, and randomization
+    const levelTopics = kidsMode ? KIDS_TOPICS : (TOPIC_POOLS[cefrLevel] || TOPIC_POOLS["A1"]);
+    const topicSetIndex = (section + lessonNo) % levelTopics.length;
+    const selectedTopicSet = levelTopics[topicSetIndex];
+    
+    // Use topic hint if provided, otherwise use selected topic set
+    const scenarioTopics = topic 
+      ? [topic, ...selectedTopicSet.filter(t => t !== topic)]
+      : selectedTopicSet;
 
     // Build exclusion note
     const exclusionNote = excludeQuestions.length > 0 
-      ? `\n\nAVOID THESE EXACT QUESTIONS (already used):\n${excludeQuestions.map(q => `- "${q}"`).join("\n")}`
+      ? `\n\nCRITICAL - NEVER USE THESE EXACT QUESTIONS OR ANSWERS (already used, must be different):\n${excludeQuestions.slice(0, 30).map(q => `- "${q}"`).join("\n")}`
       : "";
 
     const prompt = {
       role: "system",
       content:
-        "You are an expert language-learning content generator for a Duolingo-style app.\n" +
+        `You are an expert ${languageName} language teacher creating exercises for a mobile learning app.\n` +
         "Output ONLY valid JSON with { \"exercises\": AiExercise[] }.\n\n" +
-        "ABSOLUTELY BANNED (NEVER USE):\n" +
+        "BANNED CONTENT (NEVER USE):\n" +
         "- 'I am happy', 'I am sad', 'I am tired', 'I am hungry', 'I am fine'\n" +
-        "- 'The cat is big', 'The dog is small', 'This is a book', 'This is a pen'\n" +
-        "- Any simple 'I am [adjective]' or 'The [animal] is [adjective]' patterns\n" +
-        "- 'Fill in the blank: I ___ happy' or similar trivial fill-blanks\n" +
-        "- 'audio transcript', 'word bank' as answers\n" +
-        "- Single word answers (except for vocabulary matching)\n\n" +
-        "REQUIRED: Generate PRACTICAL, REAL-WORLD sentences that people actually use:\n" +
+        "- 'The cat is big', 'The dog is small', 'This is a book'\n" +
+        "- Any 'I am [adjective]' or 'The [animal] is [adjective]' patterns\n" +
+        "- Generic greetings like just 'Hello' or 'Goodbye' without context\n" +
+        "- Placeholder text like 'word1', 'option1', 'translation1'\n\n" +
+        "REQUIRED: Generate PRACTICAL, REAL-WORLD sentences people actually use:\n" +
         "✅ 'Excuse me, where is the nearest pharmacy?'\n" +
         "✅ 'I would like a table for two, please'\n" +
         "✅ 'What time does the museum close?'\n" +
         "✅ 'Can you recommend a good restaurant nearby?'\n" +
         "✅ 'My flight leaves at 3 o'clock tomorrow'\n\n" +
-        `CEFR Level: ${cefrLevel} - Sentence complexity: ${complexity}\n` +
+        `CEFR Level: ${cefrLevel}\n` +
+        `Complexity: ${complexity}\n` +
         `Sentence length: ${sentenceLength}\n` +
-        (kidsMode ? "MODE: Kids/Children - Use simple, fun, encouraging language with emojis in hints!\n" : "") +
-        "\nCRITICAL word_bank RULES:\n" +
-        "- The 'words' array MUST contain ALL words from correct_answer\n" +
-        "- Add exactly 2-3 distractor words that are plausible but not in the answer\n" +
-        "- Shuffle the words randomly\n\n" +
-        "Exercise variety required:\n" +
-        "- 2x multiple_choice (translate English→target with 4 options)\n" +
-        "- 2x translation (type the translation)\n" +
-        "- 2x word_bank (arrange words to form a sentence)\n" +
-        "- 1x match_pairs (4 word pairs left/right - vocabulary matching)\n" +
-        "- 2x type_what_you_hear (transcribe a target language phrase)\n" +
-        "- 1x fill_blank (complete a sentence with missing word)\n\n" +
-        "Options formats:\n" +
-        "- multiple_choice: options: string[] (exactly 4 including correct)\n" +
-        "- word_bank: options: { words: string[] } (all answer words + 2-3 distractors, shuffled)\n" +
-        "- match_pairs: options: { pairs: [{left: string, right: string}] } (exactly 4 pairs)\n" +
-        "- type_what_you_hear: question='Type what you hear: [phrase in target language]', correct_answer=[same phrase]\n" +
-        "- fill_blank: question with ___ for blank, correct_answer is the missing word(s)\n" +
+        (kidsMode ? "MODE: Kids - Use simple, fun, encouraging language with emojis in hints!\n" : "") +
+        "\nEXERCISE TYPES TO GENERATE (exactly 10 exercises total):\n" +
+        "1. multiple_choice: Translate English→${languageName} with 4 options (including correct)\n" +
+        "2. translation: Type the ${languageName} translation of an English sentence\n" +
+        "3. word_bank: Arrange words to form ${languageName} sentence (include ALL answer words + 3 distractors)\n" +
+        "4. match_pairs: Match 4 English words to ${languageName} translations\n" +
+        "5. type_what_you_hear: Audio transcription - question shows the phrase, answer is same phrase\n" +
+        "6. fill_blank: Complete ${languageName} sentence with missing word(s)\n" +
+        "7. listen_and_select: Listen and pick correct meaning (4 English options)\n" +
+        "8. write_in_english: Translate ${languageName}→English\n" +
+        "9. speak_answer: Pronounce the ${languageName} phrase shown\n" +
+        "10. flashcard: Vocabulary card with word on front, meaning on back\n\n" +
+        "DISTRIBUTION: 2 multiple_choice, 1 translation, 2 word_bank, 1 match_pairs, " +
+        "1 type_what_you_hear, 1 fill_blank, 1 listen_and_select, 1 write_in_english\n\n" +
+        "OPTIONS FORMATS:\n" +
+        "- multiple_choice/listen_and_select: options: string[] (exactly 4, include correct)\n" +
+        "- word_bank: options: { words: string[] } (all answer words + distractors, shuffled)\n" +
+        "- match_pairs: options: { pairs: [{left: string, right: string}] } (4 pairs)\n" +
+        "- type_what_you_hear: question='Type: [phrase in ${languageName}]', correct_answer=same phrase\n" +
+        "- fill_blank: question has '___', correct_answer is the missing word(s)\n" +
+        "- write_in_english: question shows ${languageName}, answer in English\n" +
+        "- flashcard: options: { front: string, back: string } for display\n" +
+        "- speak_answer: no options needed\n" +
         exclusionNote,
     };
 
     const userMsg = {
       role: "user",
       content:
-        `Target language: ${languageName} (code: ${lang}). Lesson number: ${lessonNo}. CEFR Level: ${cefrLevel}.\n` +
-        `Generate exactly 10 high-quality, UNIQUE exercises for ${cefrLevel} learners.\n` +
-        `Focus on these specific scenarios: ${selectedTopics.join(", ")}.\n` +
-        `All answers must be written in ${languageName}. Questions are in English.\n` +
-        `Each exercise MUST be different - vary the vocabulary, grammar, and context.\n` +
-        `CRITICAL: Use REAL practical sentences, NOT basic patterns like 'I am happy' or 'The cat is big'.`,
+        `Target language: ${languageName} (code: ${lang}). Lesson: ${lessonNo}, Section: ${section}.\n` +
+        `Generate EXACTLY 10 unique, high-quality ${cefrLevel} exercises.\n` +
+        `Focus scenarios: ${scenarioTopics.join("; ")}.\n` +
+        `All target language answers must be in ${languageName}.\n` +
+        `Each exercise MUST have completely different vocabulary and context.\n` +
+        `NO REPEATS - every question and answer must be unique.\n` +
+        `Include helpful hints for learners.`,
     };
 
-    console.log(`Generating exercises for ${languageName} (${lang}), lesson ${lessonNo}, CEFR: ${cefrLevel}, kids: ${kidsMode}`);
+    console.log(`Generating exercises for ${languageName} (${lang}), lesson ${lessonNo}, section ${section}, CEFR: ${cefrLevel}`);
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -306,7 +333,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        temperature: 0.9, // Higher for more variety
+        temperature: 0.95,
         response_format: { type: "json_object" },
         messages: [prompt, userMsg],
       }),
@@ -358,16 +385,16 @@ serve(async (req) => {
         options: ex?.options,
       }))
       .filter((ex) => ex.exercise_type && ex.question && ex.correct_answer)
-      .filter((ex) => ex.correct_answer.length >= 2) // Must have at least 2 chars
+      .filter((ex) => ex.correct_answer.length >= 2)
       .filter((ex) => !containsBannedPattern(ex.question) && !containsBannedPattern(ex.correct_answer))
       .filter((ex) => !excludeQuestions.some(used => 
         used.toLowerCase() === ex.question.toLowerCase() || 
         used.toLowerCase() === ex.correct_answer.toLowerCase()
       ))
       .map(validateWordBank)
-      .slice(0, 12);
+      .slice(0, 10);
 
-    console.log(`Generated ${cleaned.length} valid exercises for ${lang} lesson ${lessonNo} (${cefrLevel})`);
+    console.log(`Generated ${cleaned.length} valid exercises for ${lang} lesson ${lessonNo} section ${section} (${cefrLevel})`);
 
     return new Response(JSON.stringify({ exercises: cleaned, cefrLevel }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

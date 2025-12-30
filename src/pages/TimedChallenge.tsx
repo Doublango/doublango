@@ -13,8 +13,14 @@ import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
 import type { Database } from '@/integrations/supabase/types';
+import type { ExtendedExerciseType } from '@/lib/content/aiLesson';
 
-type Exercise = Database['public']['Tables']['exercises']['Row'];
+type DBExercise = Database['public']['Tables']['exercises']['Row'];
+
+// Extended exercise type for TimedChallenge
+interface Exercise extends Omit<DBExercise, 'exercise_type'> {
+  exercise_type: ExtendedExerciseType;
+}
 
 type ExerciseOption = string | { text: string };
 
