@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { bumpQuestionSetVersion, getQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
 import type { Database } from '@/integrations/supabase/types';
 
 type Unit = Database['public']['Tables']['units']['Row'];
@@ -39,6 +40,7 @@ const Learn: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
   const [difficultyLevel, setDifficultyLevel] = useState<number>(0); // 0=A1, 1=A2, etc.
+  const [questionSetVersion, setQuestionSetVersion] = useState<number>(0);
 
   // Only redirect to auth AFTER loading is complete and we're sure there's no user
   useEffect(() => {
@@ -102,12 +104,21 @@ const Learn: React.FC = () => {
     }
   }, [activeCourse, progressLoading, user]);
 
+  useEffect(() => {
+    if (!activeCourse?.language_code) return;
+    const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+    setQuestionSetVersion(getQuestionSetVersion(activeCourse.language_code, cefr));
+  }, [activeCourse?.language_code, difficultyLevel]);
+
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
-  const startLesson = (lessonId: string) => {
-    // Pass CEFR level to lesson page for AI question generation
-    const cefrLevel = CEFR_LEVELS[difficultyLevel]?.value || 'A1';
-    navigate(`/lesson/${lessonId}?cefr=${cefrLevel}`);
+  const startLesson = (lesson: Lesson) => {
+    const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+    const gen = activeCourse?.language_code
+      ? makeGenerationId(activeCourse.language_code, cefr, lesson.lesson_number, questionSetVersion)
+      : (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()));
+
+    navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${questionSetVersion}&gen=${encodeURIComponent(gen)}`);
   };
 
   const isLessonUnlocked = (unitIndex: number, lessonIndex: number): boolean => {
@@ -161,11 +172,13 @@ const Learn: React.FC = () => {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  // Reset to regenerate fresh questions at this level
-                  setCompletedLessonIds(new Set());
+                  if (!activeCourse?.language_code) return;
+                  const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+                  const next = bumpQuestionSetVersion(activeCourse.language_code, cefr);
+                  setQuestionSetVersion(next);
                 }}
                 className="h-7 px-2 gap-1 text-muted-foreground hover:text-primary"
-                title={t('learn.resetLevel', 'Reset this level for fresh AI questions')}
+                title={t('learn.resetLevel', 'Regenerate a brand-new set of AI questions for this difficulty')}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </Button>
@@ -234,9 +247,9 @@ const Learn: React.FC = () => {
                     return (
                       <div key={lesson.id} className="relative flex items-center gap-4">
                         {/* Node */}
-                        <button
-                          onClick={() => isUnlocked && startLesson(lesson.id)}
-                          disabled={!isUnlocked}
+                         <button
+                           onClick={() => isUnlocked && startLesson(lesson)}
+                           disabled={!isUnlocked}
                           className={cn(
                             'lesson-node relative z-10 -ml-8',
                             isCompleted && 'lesson-node-completed',
@@ -254,10 +267,10 @@ const Learn: React.FC = () => {
                         </button>
 
                         {/* Lesson Card */}
-                        <button
-                          onClick={() => isUnlocked && startLesson(lesson.id)}
-                          disabled={!isUnlocked}
-                          className={cn(
+                         <button
+                           onClick={() => isUnlocked && startLesson(lesson)}
+                           disabled={!isUnlocked}
+                           className={cn(
                             'flex-1 bg-card rounded-xl p-3 shadow-sm flex items-center justify-between transition-all',
                             isUnlocked && 'hover:shadow-md cursor-pointer',
                             !isUnlocked && 'opacity-50 cursor-not-allowed',
