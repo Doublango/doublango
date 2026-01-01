@@ -325,6 +325,7 @@ const Learn: React.FC = () => {
                             </Button>
                           )}
                         </div>
+                      </div>
                     );
                   })}
                 </div>

@@ -94,8 +94,14 @@ const LessonPage: React.FC = () => {
   const { t } = useTranslation();
   const { settings: appSettings } = useAppSettings();
   
-  // Get CEFR level from URL params (passed from Learn page difficulty slider)
+  // Get CEFR level and generation params from URL (passed from Learn page)
   const cefrLevel = (searchParams.get('cefr') as CEFRLevel) || 'A1';
+  const generationId = searchParams.get('gen') || '';
+  const qsetVersion = searchParams.get('qset') || '';
+  const sectionTitle = searchParams.get('section') || '';
+  
+  // If gen/qset are present, we must regenerate (skip DB cache)
+  const forceRegenerate = !!(generationId || qsetVersion);
 
   const [lesson, setLesson] = useState<Lesson | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -137,8 +143,10 @@ const LessonPage: React.FC = () => {
 
         const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
 
-        if (exercisesRes.data?.length) {
+        // Skip DB exercises if forceRegenerate is true (user clicked reset or changed difficulty)
+        if (!forceRegenerate && exercisesRes.data?.length) {
           setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
+          setLoading(false);
           return;
         }
 
@@ -151,6 +159,9 @@ const LessonPage: React.FC = () => {
           const ai = await generateAiLessonExercises(lang, lessonNumber, {
             difficulty: cefrLevel,
             isKidsMode: appSettings.kidsMode ?? false,
+            generationId: generationId || undefined,
+            qsetVersion: qsetVersion ? parseInt(qsetVersion, 10) : undefined,
+            topicHint: sectionTitle || undefined,
           });
           generated = ai.map((e) => ({
             exercise_type: e.exercise_type,
@@ -196,7 +207,7 @@ const LessonPage: React.FC = () => {
     };
 
     loadLesson();
-  }, [lessonId, toast, activeCourse?.language_code]);
+  }, [lessonId, toast, activeCourse?.language_code, cefrLevel, forceRegenerate, generationId, qsetVersion, sectionTitle, appSettings.kidsMode]);
 
   // If the course language arrives after initial fetch, resanitize existing exercises
   useEffect(() => {

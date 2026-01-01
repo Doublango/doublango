@@ -263,9 +263,11 @@ serve(async (req) => {
 
     const languageName = LANGUAGE_NAMES[lang] || lang.toUpperCase();
 
-    // Select topics based on CEFR level, section, and randomization
+    // Select topics based on CEFR level, section, qset, and genId for maximum variation
     const levelTopics = kidsMode ? KIDS_TOPICS : (TOPIC_POOLS[cefrLevel] || TOPIC_POOLS["A1"]);
-    const topicSetIndex = (section + lessonNo + qsetNum) % levelTopics.length;
+    // Use genId hash + qsetNum + section + lessonNo for topic selection diversity
+    const genHash = genId ? genId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : 0;
+    const topicSetIndex = (section + lessonNo + qsetNum + genHash) % levelTopics.length;
     const selectedTopicSet = levelTopics[topicSetIndex];
     
     // Use topic hint if provided, otherwise use selected topic set
@@ -328,15 +330,17 @@ serve(async (req) => {
       role: "user",
       content:
         `Target language: ${languageName} (code: ${lang}). Lesson: ${lessonNo}, Section: ${section}.\n` +
+        `Generation ID: ${genId || 'default'} | Question Set: ${qsetNum}.\n` +
         `Generate EXACTLY 10 unique, high-quality ${cefrLevel} exercises.\n` +
         `Focus scenarios: ${scenarioTopics.join("; ")}.\n` +
         `All target language answers must be in ${languageName}.\n` +
         `Each exercise MUST have completely different vocabulary and context.\n` +
         `NO REPEATS - every question and answer must be unique.\n` +
+        `IMPORTANT: This is generation ${qsetNum} for this lesson - use DIFFERENT vocabulary and sentences than previous generations.\n` +
         `Include helpful hints for learners.`,
     };
 
-    console.log(`Generating exercises for ${languageName} (${lang}), lesson ${lessonNo}, section ${section}, CEFR: ${cefrLevel}`);
+    console.log(`Generating exercises for ${languageName} (${lang}), lesson ${lessonNo}, section ${section}, CEFR: ${cefrLevel}, genId: ${genId || 'none'}, qset: ${qsetNum}`);
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
