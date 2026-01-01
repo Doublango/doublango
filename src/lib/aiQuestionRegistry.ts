@@ -31,6 +31,8 @@ const safeRemove = (key: string) => {
 };
 
 const qsetKey = (lang: LanguageCode, cefr: CEFRLevel) => `${QSET_PREFIX}:${lang}:${cefr}`;
+const qsetLessonKey = (lang: LanguageCode, cefr: CEFRLevel, lessonNumber: number) =>
+  `${QSET_PREFIX}:${lang}:${cefr}:lesson:${lessonNumber}`;
 const usedKey = (lang: LanguageCode, cefr: CEFRLevel, lessonNumber: number) =>
   `${USED_PREFIX}:${lang}:${cefr}:lesson:${lessonNumber}`;
 
@@ -43,6 +45,18 @@ export const getQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel): numb
 export const bumpQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel): number => {
   const next = getQuestionSetVersion(lang, cefr) + 1;
   safeSet(qsetKey(lang, cefr), String(next));
+  return next;
+};
+
+export const getLessonQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel, lessonNumber: number): number => {
+  const raw = safeGet(qsetLessonKey(lang, cefr, lessonNumber));
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+};
+
+export const bumpLessonQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel, lessonNumber: number): number => {
+  const next = getLessonQuestionSetVersion(lang, cefr, lessonNumber) + 1;
+  safeSet(qsetLessonKey(lang, cefr, lessonNumber), String(next));
   return next;
 };
 

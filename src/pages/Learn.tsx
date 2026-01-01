@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { bumpQuestionSetVersion, getQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
+import { bumpLessonQuestionSetVersion, bumpQuestionSetVersion, getLessonQuestionSetVersion, getQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
 import type { Database } from '@/integrations/supabase/types';
 
 type Unit = Database['public']['Tables']['units']['Row'];
@@ -112,13 +112,24 @@ const Learn: React.FC = () => {
 
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
-  const startLesson = (lesson: Lesson) => {
+  const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number }) => {
     const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
-    const gen = activeCourse?.language_code
-      ? makeGenerationId(activeCourse.language_code, cefr, lesson.lesson_number, questionSetVersion)
+
+    const lang = activeCourse?.language_code;
+    const globalSet = questionSetVersion;
+
+    const lessonSet = lang
+      ? (opts?.lessonSetVersionOverride ?? getLessonQuestionSetVersion(lang, cefr, lesson.lesson_number))
+      : 0;
+
+    // Combine into one stable number so backend/topic selection changes when either changes
+    const qset = globalSet * 1000 + lessonSet;
+
+    const gen = lang
+      ? makeGenerationId(lang, cefr, lesson.lesson_number, qset)
       : (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()));
 
-    navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${questionSetVersion}&gen=${encodeURIComponent(gen)}`);
+    navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${qset}&gen=${encodeURIComponent(gen)}&section=${lesson.lesson_number}`);
   };
 
   const isLessonUnlocked = (unitIndex: number, lessonIndex: number): boolean => {
@@ -267,23 +278,53 @@ const Learn: React.FC = () => {
                         </button>
 
                         {/* Lesson Card */}
-                         <button
-                           onClick={() => isUnlocked && startLesson(lesson)}
-                           disabled={!isUnlocked}
-                           className={cn(
+                        <div
+                          className={cn(
                             'flex-1 bg-card rounded-xl p-3 shadow-sm flex items-center justify-between transition-all',
-                            isUnlocked && 'hover:shadow-md cursor-pointer',
-                            !isUnlocked && 'opacity-50 cursor-not-allowed',
+                            isUnlocked && 'hover:shadow-md',
+                            !isUnlocked && 'opacity-50',
                             isNext && 'ring-2 ring-primary ring-offset-2'
                           )}
                         >
-                          <div>
-                            <p className="font-semibold text-left">{lesson.title}</p>
-                            <p className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</p>
-                          </div>
-                          {isUnlocked && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
-                        </button>
-                      </div>
+                          <button
+                            onClick={() => isUnlocked && startLesson(lesson)}
+                            disabled={!isUnlocked}
+                            className={cn(
+                              'flex-1 flex items-center justify-between text-left',
+                              isUnlocked && 'cursor-pointer',
+                              !isUnlocked && 'cursor-not-allowed'
+                            )}
+                          >
+                            <div>
+                              <p className="font-semibold text-left">{lesson.title}</p>
+                              <p className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</p>
+                            </div>
+                            {isUnlocked && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
+                          </button>
+
+                          {isUnlocked && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (!activeCourse?.language_code) return;
+                                const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+                                const nextLessonSet = bumpLessonQuestionSetVersion(
+                                  activeCourse.language_code,
+                                  cefr,
+                                  lesson.lesson_number
+                                );
+                                startLesson(lesson, { lessonSetVersionOverride: nextLessonSet });
+                              }}
+                              className="ml-2 h-8 w-8 p-0 text-muted-foreground hover:text-primary"
+                              title={t('learn.resetLesson', 'Regenerate a brand-new set of questions for this section')}
+                            >
+                              <RotateCcw className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                     );
                   })}
                 </div>

@@ -23,6 +23,8 @@ export interface AiLessonOptions {
   topicHint?: string;
   usedQuestions?: string[];
   sectionNumber?: number;
+  generationId?: string;
+  qsetVersion?: number;
 }
 
 export const generateAiLessonExercises = async (
@@ -47,6 +49,8 @@ export const generateAiLessonExercises = async (
       topicHint: options?.topicHint,
       usedQuestions: options?.usedQuestions ?? [],
       sectionNumber: options?.sectionNumber ?? 0,
+      generationId: options?.generationId,
+      qsetVersion: options?.qsetVersion ?? 0,
     }),
   });
 
