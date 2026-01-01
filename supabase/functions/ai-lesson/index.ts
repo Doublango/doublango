@@ -193,14 +193,27 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { languageCode, lessonNumber, difficulty, isKidsMode, topicHint, usedQuestions, sectionNumber } = body;
+    const {
+      languageCode,
+      lessonNumber,
+      difficulty,
+      isKidsMode,
+      topicHint,
+      usedQuestions,
+      sectionNumber,
+      generationId,
+      qsetVersion,
+    } = body;
     const lang = clean(languageCode) as LanguageCode;
     const lessonNo = clampLesson(lessonNumber);
     const diffLevel = clean(difficulty) || "beginner";
     const kidsMode = Boolean(isKidsMode);
     const topic = clean(topicHint) || "";
-    const excludeQuestions = Array.isArray(usedQuestions) ? usedQuestions.slice(0, 100) : [];
+    const excludeQuestions = Array.isArray(usedQuestions) ? usedQuestions.slice(0, 200) : [];
     const section = Number(sectionNumber) || 0;
+    const genId = clean(generationId) || "";
+    const qset = Number(qsetVersion);
+    const qsetNum = Number.isFinite(qset) ? Math.floor(qset) : 0;
 
     if (!lang) {
       return new Response(JSON.stringify({ error: "languageCode is required" }), {
@@ -252,7 +265,7 @@ serve(async (req) => {
 
     // Select topics based on CEFR level, section, and randomization
     const levelTopics = kidsMode ? KIDS_TOPICS : (TOPIC_POOLS[cefrLevel] || TOPIC_POOLS["A1"]);
-    const topicSetIndex = (section + lessonNo) % levelTopics.length;
+    const topicSetIndex = (section + lessonNo + qsetNum) % levelTopics.length;
     const selectedTopicSet = levelTopics[topicSetIndex];
     
     // Use topic hint if provided, otherwise use selected topic set
