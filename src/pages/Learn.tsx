@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
@@ -12,6 +13,7 @@ import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { bumpLessonQuestionSetVersion, bumpQuestionSetVersion, getLessonQuestionSetVersion, getQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
 type Unit = Database['public']['Tables']['units']['Row'];
@@ -34,6 +36,8 @@ const CEFR_LEVELS = [
 const Learn: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const { settings: appSettings } = useAppSettings();
   const { user, loading: authLoading } = useAuth();
   const { activeCourse, loading: progressLoading } = useUserProgress();
   const [units, setUnits] = useState<UnitWithLessons[]>([]);
@@ -107,26 +111,29 @@ const Learn: React.FC = () => {
   useEffect(() => {
     if (!activeCourse?.language_code) return;
     const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
-    setQuestionSetVersion(getQuestionSetVersion(activeCourse.language_code, cefr));
-  }, [activeCourse?.language_code, difficultyLevel]);
+    const mode = appSettings.kidsMode ? 'kids' : 'adult';
+    setQuestionSetVersion(getQuestionSetVersion(activeCourse.language_code, cefr, mode));
+  }, [activeCourse?.language_code, difficultyLevel, appSettings.kidsMode]);
 
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
-  const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number }) => {
-    const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+  const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number; difficultyOverrideIndex?: number }) => {
+    const levelIndex = opts?.difficultyOverrideIndex ?? difficultyLevel;
+    const cefr = (CEFR_LEVELS[levelIndex]?.value || 'A1') as any;
 
     const lang = activeCourse?.language_code;
-    const globalSet = questionSetVersion;
+    const mode = appSettings.kidsMode ? 'kids' : 'adult';
+    const globalSet = lang ? getQuestionSetVersion(lang, cefr, mode) : questionSetVersion;
 
     const lessonSet = lang
-      ? (opts?.lessonSetVersionOverride ?? getLessonQuestionSetVersion(lang, cefr, lesson.lesson_number))
+      ? (opts?.lessonSetVersionOverride ?? getLessonQuestionSetVersion(lang, cefr, lesson.lesson_number, mode))
       : 0;
 
     // Combine into one stable number so backend/topic selection changes when either changes
     const qset = globalSet * 1000 + lessonSet;
 
     const gen = lang
-      ? makeGenerationId(lang, cefr, lesson.lesson_number, qset)
+      ? makeGenerationId(lang, cefr, lesson.lesson_number, qset, mode)
       : (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()));
 
     navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${qset}&gen=${encodeURIComponent(gen)}&section=${lesson.lesson_number}`);
@@ -185,8 +192,13 @@ const Learn: React.FC = () => {
                 onClick={() => {
                   if (!activeCourse?.language_code) return;
                   const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
-                  const next = bumpQuestionSetVersion(activeCourse.language_code, cefr);
+                  const mode = appSettings.kidsMode ? 'kids' : 'adult';
+                  const next = bumpQuestionSetVersion(activeCourse.language_code, cefr, mode);
                   setQuestionSetVersion(next);
+                  toast({
+                    title: t('learn.resetLevel', 'Questions refreshed'),
+                    description: t('learn.resetLevelDesc', 'New AI questions will generate the next time you open a lesson.'),
+                  });
                 }}
                 className="h-7 px-2 gap-1 text-muted-foreground hover:text-primary"
                 title={t('learn.resetLevel', 'Regenerate a brand-new set of AI questions for this difficulty')}
@@ -197,7 +209,17 @@ const Learn: React.FC = () => {
           </div>
           <Slider
             value={[difficultyLevel]}
-            onValueChange={(val) => setDifficultyLevel(val[0])}
+            onValueChange={(val) => {
+              const nextIndex = val[0];
+              setDifficultyLevel(nextIndex);
+
+              // Requirement: moving the slider should reset the questions for that difficulty.
+              if (!activeCourse?.language_code) return;
+              const nextCefr = (CEFR_LEVELS[nextIndex]?.value || 'A1') as any;
+              const mode = appSettings.kidsMode ? 'kids' : 'adult';
+              const next = bumpQuestionSetVersion(activeCourse.language_code, nextCefr, mode);
+              setQuestionSetVersion(next);
+            }}
             max={5}
             step={1}
             className="w-full"
@@ -311,11 +333,17 @@ const Learn: React.FC = () => {
                                 e.stopPropagation();
                                 if (!activeCourse?.language_code) return;
                                 const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+                                const mode = appSettings.kidsMode ? 'kids' : 'adult';
                                 const nextLessonSet = bumpLessonQuestionSetVersion(
                                   activeCourse.language_code,
                                   cefr,
-                                  lesson.lesson_number
+                                  lesson.lesson_number,
+                                  mode
                                 );
+                                toast({
+                                  title: t('learn.resetLesson', 'Section refreshed'),
+                                  description: t('learn.resetLessonDesc', 'A new batch will generate when you open this lesson.'),
+                                });
                                 startLesson(lesson, { lessonSetVersionOverride: nextLessonSet });
                               }}
                               className="ml-2 h-8 w-8 p-0 text-muted-foreground hover:text-primary"
