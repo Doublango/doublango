@@ -11,13 +11,14 @@ import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import SpeechExercise from '@/components/SpeechExercise';
 import AudioExercise from '@/components/AudioExercise';
-import { X, Heart, Volume2, Mic, Check, ArrowRight } from 'lucide-react';
+import { X, Heart, Volume2, Mic, Check, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
 import { generateLessonForLanguage } from '@/lib/languageContent';
 import { generateAiLessonExercises, type CEFRLevel, type ExtendedExerciseType } from '@/lib/content/aiLesson';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { getUsedQuestionBank, appendUsedQuestionBank, bumpLessonQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
 import type { Database } from '@/integrations/supabase/types';
 
 type DBExercise = Database['public']['Tables']['exercises']['Row'];
@@ -122,92 +123,140 @@ const LessonPage: React.FC = () => {
   const [isComplete, setIsComplete] = useState(false);
   const [monkeyMood, setMonkeyMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
   const [speechResult, setSpeechResult] = useState<{ correct: boolean; transcript: string; accuracy: number } | null>(null);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [localQsetVersion, setLocalQsetVersion] = useState(0);
 
   const autoPlayedRef = useRef<string | null>(null);
   const restoredProgressRef = useRef(false);
 
-  useEffect(() => {
-    const loadLesson = async () => {
-      if (!lessonId) return;
+  // Load or generate exercises
+  const loadExercises = useCallback(async (forceNew = false) => {
+    if (!lessonId) return;
+    if (forceNew) {
+      setIsRegenerating(true);
+    } else {
       setLoading(true);
+    }
+
+    try {
+      const lessonRes = await supabase.from('lessons').select('*').eq('id', lessonId).single();
+      if (lessonRes.data) setLesson(lessonRes.data);
+
+      const exercisesRes = await supabase
+        .from('exercises')
+        .select('*')
+        .eq('lesson_id', lessonId)
+        .order('exercise_order');
+
+      const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
+      const mode = appSettings.kidsMode ? 'kids' : 'adult';
+
+      // Skip DB exercises if forceRegenerate or forceNew is true
+      if (!forceRegenerate && !forceNew && exercisesRes.data?.length) {
+        setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
+        setLoading(false);
+        return;
+      }
+
+      const lessonNumber = lessonRes.data?.lesson_number ?? 1;
+
+      // Get used questions for no-repeat enforcement
+      const usedQuestions = getUsedQuestionBank(lang, cefrLevel, lessonNumber, mode);
+
+      let generated: Array<{ exercise_type: Exercise['exercise_type']; question: string; correct_answer: string; options?: any; hint?: string | null }> = [];
 
       try {
-        const lessonRes = await supabase.from('lessons').select('*').eq('id', lessonId).single();
-        if (lessonRes.data) setLesson(lessonRes.data);
+        const currentQset = forceNew ? localQsetVersion : (qsetVersion ? parseInt(qsetVersion, 10) : 0);
+        const currentGenId = forceNew 
+          ? makeGenerationId(lang, cefrLevel, lessonNumber, currentQset, mode)
+          : (generationId || undefined);
 
-        const exercisesRes = await supabase
-          .from('exercises')
-          .select('*')
-          .eq('lesson_id', lessonId)
-          .order('exercise_order');
-
-        const lang = (activeCourse?.language_code || 'es') as Database['public']['Enums']['language_code'];
-
-        // Skip DB exercises if forceRegenerate is true (user clicked reset or changed difficulty)
-        if (!forceRegenerate && exercisesRes.data?.length) {
-          setExercises(sanitizeLessonExercises(exercisesRes.data, lang));
-          setLoading(false);
-          return;
-        }
-
-        // If backend has no exercises for this lesson yet, generate them.
-        const lessonNumber = lessonRes.data?.lesson_number ?? 1;
-
-        let generated: Array<{ exercise_type: Exercise['exercise_type']; question: string; correct_answer: string; options?: any; hint?: string | null }> = [];
-
-        try {
-          const ai = await generateAiLessonExercises(lang, lessonNumber, {
-            difficulty: cefrLevel,
-            isKidsMode: appSettings.kidsMode ?? false,
-            generationId: generationId || undefined,
-            qsetVersion: qsetVersion ? parseInt(qsetVersion, 10) : undefined,
-            topicHint: sectionTitle || undefined,
-          });
-          generated = ai.map((e) => ({
-            exercise_type: e.exercise_type,
-            question: e.question,
-            correct_answer: e.correct_answer,
-            options: e.options,
-            hint: e.hint ?? null,
-          }));
-        } catch {
-          // ignore and fallback to local generator
-        }
-
-        if (!generated.length) {
-          const local = generateLessonForLanguage(lang, lessonNumber);
-          generated = local.map((e) => ({
-            exercise_type: e.type as Exercise['exercise_type'],
-            question: e.question,
-            correct_answer: e.correctAnswer,
-            options: e.options ?? null,
-            hint: e.hint ?? null,
-          }));
-        }
-
-        const rows: Exercise[] = generated.slice(0, 10).map((g, i) => ({
-          id: `gen-${lessonId}-${i}`,
-          lesson_id: lessonId,
-          exercise_order: i + 1,
-          exercise_type: g.exercise_type,
-          question: g.question,
-          correct_answer: g.correct_answer,
-          options: (g.options ?? null) as any,
-          hint: g.hint ?? null,
-          audio_url: null,
+        const ai = await generateAiLessonExercises(lang, lessonNumber, {
+          difficulty: cefrLevel,
+          isKidsMode: appSettings.kidsMode ?? false,
+          generationId: currentGenId,
+          qsetVersion: currentQset,
+          topicHint: sectionTitle || undefined,
+          usedQuestions,
+        });
+        generated = ai.map((e) => ({
+          exercise_type: e.exercise_type,
+          question: e.question,
+          correct_answer: e.correct_answer,
+          options: e.options,
+          hint: e.hint ?? null,
         }));
 
-        setExercises(rows);
-      } catch (error) {
-        console.error('Error loading lesson:', error);
-        toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
-      } finally {
-        setLoading(false);
+        // Append newly generated questions to used bank for no-repeat tracking
+        if (generated.length > 0) {
+          const newUsed = generated.flatMap(g => [g.question, g.correct_answer]);
+          appendUsedQuestionBank(lang, cefrLevel, lessonNumber, newUsed, mode);
+        }
+      } catch {
+        // ignore and fallback to local generator
       }
-    };
 
-    loadLesson();
-  }, [lessonId, toast, activeCourse?.language_code, cefrLevel, forceRegenerate, generationId, qsetVersion, sectionTitle, appSettings.kidsMode]);
+      if (!generated.length) {
+        const local = generateLessonForLanguage(lang, lessonNumber);
+        generated = local.map((e) => ({
+          exercise_type: e.type as Exercise['exercise_type'],
+          question: e.question,
+          correct_answer: e.correctAnswer,
+          options: e.options ?? null,
+          hint: e.hint ?? null,
+        }));
+      }
+
+      const rows: Exercise[] = generated.slice(0, 10).map((g, i) => ({
+        id: `gen-${lessonId}-${Date.now()}-${i}`,
+        lesson_id: lessonId,
+        exercise_order: i + 1,
+        exercise_type: g.exercise_type,
+        question: g.question,
+        correct_answer: g.correct_answer,
+        options: (g.options ?? null) as any,
+        hint: g.hint ?? null,
+        audio_url: null,
+      }));
+
+      setExercises(rows);
+      
+      // Reset lesson state for fresh start
+      if (forceNew) {
+        setCurrentIndex(0);
+        setSelectedAnswer(null);
+        setTypedAnswer('');
+        setWordBankAnswer([]);
+        setIsChecked(false);
+        setIsCorrect(false);
+        setMistakes(0);
+        setSpeechResult(null);
+        toast({
+          title: t('lesson.regenerated', 'New questions loaded!'),
+          description: t('lesson.regeneratedDesc', 'Fresh batch of exercises ready.'),
+        });
+      }
+    } catch (error) {
+      console.error('Error loading lesson:', error);
+      toast({ title: 'Error', description: 'Failed to load lesson', variant: 'destructive' });
+    } finally {
+      setLoading(false);
+      setIsRegenerating(false);
+    }
+  }, [lessonId, toast, activeCourse?.language_code, cefrLevel, forceRegenerate, generationId, qsetVersion, sectionTitle, appSettings.kidsMode, localQsetVersion, t]);
+
+  useEffect(() => {
+    loadExercises(false);
+  }, [loadExercises]);
+
+  // In-lesson regenerate handler (no navigation)
+  const handleRegenerateSection = useCallback(() => {
+    if (!activeCourse?.language_code || !lesson) return;
+    const mode = appSettings.kidsMode ? 'kids' : 'adult';
+    const nextVersion = bumpLessonQuestionSetVersion(activeCourse.language_code, cefrLevel, lesson.lesson_number, mode);
+    setLocalQsetVersion(nextVersion);
+    loadExercises(true);
+  }, [activeCourse?.language_code, lesson, cefrLevel, appSettings.kidsMode, loadExercises]);
 
   // If the course language arrives after initial fetch, resanitize existing exercises
   useEffect(() => {
@@ -570,6 +619,26 @@ const LessonPage: React.FC = () => {
           </div>
         </div>
       </header>
+
+      {/* Regenerate Section Button */}
+      {!isComplete && exercises.length > 0 && (
+        <div className="px-4 max-w-lg mx-auto w-full">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleRegenerateSection}
+            disabled={isRegenerating || loading}
+            className="h-8 gap-1.5 text-muted-foreground hover:text-primary"
+          >
+            {isRegenerating ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RotateCcw className="w-4 h-4" />
+            )}
+            {isRegenerating ? t('lesson.regenerating', 'Loading new questions...') : t('lesson.newQuestions', 'New questions')}
+          </Button>
+        </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 px-4 py-6 max-w-lg mx-auto w-full flex flex-col">

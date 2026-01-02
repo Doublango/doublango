@@ -172,19 +172,53 @@ const TOPIC_POOLS: Record<string, string[][]> = {
   ],
 };
 
-// Kids mode topics
-const KIDS_TOPICS = [
-  ["naming zoo animals", "describing pet sounds", "counting farm animals"],
-  ["naming rainbow colors", "describing shapes", "finding matching pairs"],
-  ["ordering ice cream flavors", "naming fruits you like", "describing your favorite snack"],
-  ["introducing your family", "describing your parents", "talking about siblings"],
-  ["naming playground equipment", "describing outdoor games", "saying what you like to play"],
-  ["naming school supplies", "describing your teacher", "talking about your favorite subject"],
-  ["naming body parts", "describing how you feel", "talking about getting hurt"],
-  ["describing today's weather", "naming seasons", "saying what clothes to wear"],
-  ["counting toys", "describing your favorite toy", "sharing with friends"],
-  ["naming days of the week", "describing your morning routine", "talking about bedtime"],
-];
+// Kids mode topics - age-appropriate, fun, and simple
+const KIDS_TOPICS: Record<string, string[][]> = {
+  A1: [
+    ["naming cute zoo animals like pandas and elephants", "what sounds do farm animals make", "counting baby animals"],
+    ["finding your favorite rainbow colors", "drawing fun shapes", "matching colorful pairs"],
+    ["choosing yummy ice cream flavors", "naming fruits you love to eat", "describing your favorite snack"],
+    ["introducing your family with love", "describing mom and dad", "talking about brothers and sisters"],
+    ["playing on the playground", "your favorite outdoor games", "what toys you like"],
+  ],
+  A2: [
+    ["describing your pet and what it does", "imagining having a magical pet", "taking care of animals"],
+    ["telling a story about your best friend", "playing games with classmates", "sharing toys nicely"],
+    ["describing your favorite cartoon character", "telling about a fun movie", "your favorite superhero"],
+    ["what you want to be when you grow up", "describing cool jobs", "helping people in the community"],
+    ["planning a fun birthday party", "your favorite holiday", "giving and receiving presents"],
+  ],
+  B1: [
+    ["writing a letter to a pen pal", "making friends online safely", "describing your school to someone far away"],
+    ["explaining rules of your favorite game", "teaching someone a new sport", "being a good team player"],
+    ["describing a fun adventure you had", "imagining going to space", "exploring a magical forest"],
+    ["talking about protecting the environment", "recycling and being eco-friendly", "saving endangered animals"],
+    ["creating your own invention", "building something cool", "solving problems creatively"],
+  ],
+  B2: [
+    ["debating which superpower is best", "discussing favorite book characters", "comparing different video games"],
+    ["explaining how to make your favorite recipe", "describing cultural food traditions", "planning a healthy meal"],
+    ["discussing what makes a good friend", "handling disagreements kindly", "standing up against bullying"],
+    ["presenting a school project", "explaining a science experiment", "teaching others something you learned"],
+    ["discussing dreams and goals", "planning for the future", "what success means to you"],
+  ],
+  C1: [
+    ["analyzing themes in your favorite book series", "comparing different storytelling styles", "writing a creative short story"],
+    ["discussing current events appropriately", "understanding different perspectives", "forming your own opinions"],
+    ["explaining complex scientific concepts simply", "discussing space exploration", "debating technology's impact"],
+    ["understanding different cultures and traditions", "discussing global celebrations", "respecting diversity"],
+    ["leadership and making a difference", "community service projects", "inspiring others to do good"],
+  ],
+  C2: [
+    ["crafting persuasive arguments for a debate", "analyzing literature deeply", "writing sophisticated essays"],
+    ["discussing philosophical questions for young minds", "exploring ethics and morality", "critical thinking challenges"],
+    ["advanced scientific discussions", "understanding climate change", "exploring innovation and future tech"],
+    ["global citizenship and responsibility", "understanding world history", "cultural exchange and empathy"],
+    ["mastering figurative language", "using idioms correctly", "advanced creative writing"],
+  ],
+};
+
+// Adult mode topics - already defined above as TOPIC_POOLS
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -230,41 +264,51 @@ serve(async (req) => {
       });
     }
 
-    // Map difficulty to CEFR level
+    // Map difficulty to CEFR level with STRICT complexity requirements
     let cefrLevel = "A1";
     let sentenceLength = "3-5 words";
     let complexity = "basic vocabulary and present tense only";
+    let grammarFocus = "simple present tense, basic nouns, common adjectives";
     
     if (diffLevel === "mastery" || diffLevel === "C2" || lessonNo > 100) {
       cefrLevel = "C2";
-      sentenceLength = "15-25 words";
-      complexity = "native-level fluency, idioms, nuanced expressions, all tenses";
+      sentenceLength = "18-30 words";
+      complexity = "native-level mastery with idioms, proverbs, nuanced expressions, subjunctive, passive voice, all tenses including perfect aspects, rhetorical devices";
+      grammarFocus = "complex subordinate clauses, conditional perfect, subjunctive mood, idiomatic expressions, euphemisms, irony, cultural references";
     } else if (diffLevel === "expert" || diffLevel === "C1" || lessonNo > 80) {
       cefrLevel = "C1";
-      sentenceLength = "12-20 words";
-      complexity = "advanced grammar, idioms, subjunctive mood, complex clauses";
+      sentenceLength = "15-22 words";
+      complexity = "advanced grammar, idioms, subjunctive mood, complex embedded clauses, formal and informal registers";
+      grammarFocus = "reported speech, passive constructions, relative clauses, conditional sentences (all types), modal perfects";
     } else if (diffLevel === "fluent" || diffLevel === "B2" || lessonNo > 60) {
       cefrLevel = "B2";
-      sentenceLength = "10-15 words";
-      complexity = "past and future tenses, conditional, relative clauses";
+      sentenceLength = "12-18 words";
+      complexity = "past and future tenses, conditional, relative clauses, linking words, expressing opinions";
+      grammarFocus = "conditionals (types 1-3), passive voice, relative pronouns, discourse markers, comparing and contrasting";
     } else if (diffLevel === "advanced" || diffLevel === "B1" || lessonNo > 40) {
       cefrLevel = "B1";
-      sentenceLength = "8-12 words";
-      complexity = "past tense, future tense, modal verbs, conjunctions";
+      sentenceLength = "8-14 words";
+      complexity = "past tense, future tense, modal verbs, conjunctions, time expressions";
+      grammarFocus = "past simple and continuous, future with will/going to, modals of obligation and possibility, time clauses";
     } else if (diffLevel === "intermediate" || diffLevel === "A2" || lessonNo > 20) {
       cefrLevel = "A2";
-      sentenceLength = "5-8 words";
-      complexity = "simple past, basic conjunctions, common expressions";
+      sentenceLength = "5-10 words";
+      complexity = "simple past, basic conjunctions, common expressions, high-frequency vocabulary";
+      grammarFocus = "past simple, possessives, comparatives, prepositions of place and time, frequency adverbs";
     } else if (diffLevel === "basic" || lessonNo > 10) {
       cefrLevel = "A1";
       sentenceLength = "4-7 words";
-      complexity = "present tense, numbers, colors, family members";
+      complexity = "present tense, numbers, colors, family members, basic questions";
+      grammarFocus = "simple present, to be, have, basic question words, singular/plural nouns";
     }
 
     const languageName = LANGUAGE_NAMES[lang] || lang.toUpperCase();
 
     // Select topics based on CEFR level, section, qset, and genId for maximum variation
-    const levelTopics = kidsMode ? KIDS_TOPICS : (TOPIC_POOLS[cefrLevel] || TOPIC_POOLS["A1"]);
+    // For kids mode, use CEFR-appropriate kids topics
+    const levelTopics = kidsMode 
+      ? (KIDS_TOPICS[cefrLevel] || KIDS_TOPICS["A1"]) 
+      : (TOPIC_POOLS[cefrLevel] || TOPIC_POOLS["A1"]);
     // Use genId hash + qsetNum + section + lessonNo for topic selection diversity
     const genHash = genId ? genId.split('').reduce((a, c) => a + c.charCodeAt(0), 0) : 0;
     const topicSetIndex = (section + lessonNo + qsetNum + genHash) % levelTopics.length;
@@ -275,9 +319,33 @@ serve(async (req) => {
       ? [topic, ...selectedTopicSet.filter(t => t !== topic)]
       : selectedTopicSet;
 
-    // Build exclusion note
+    // Build exclusion note with more emphasis
     const exclusionNote = excludeQuestions.length > 0 
-      ? `\n\nCRITICAL - NEVER USE THESE EXACT QUESTIONS OR ANSWERS (already used, must be different):\n${excludeQuestions.slice(0, 30).map(q => `- "${q}"`).join("\n")}`
+      ? `\n\n⚠️ CRITICAL - NEVER USE THESE EXACT QUESTIONS OR ANSWERS (already used, must be completely different vocabulary):\n${excludeQuestions.slice(0, 40).map(q => `- "${q}"`).join("\n")}\n\nGenerate COMPLETELY NEW sentences with DIFFERENT vocabulary and topics!`
+      : "";
+
+    // Enhanced kids mode instructions
+    const kidsModeInstructions = kidsMode
+      ? `\n\n🧒 KIDS MODE ACTIVE - CRITICAL REQUIREMENTS:\n` +
+        `- Use FUN, ENGAGING, age-appropriate language\n` +
+        `- Include encouraging emojis in hints (🌟 ⭐ 🎉 👍 🦁 🐼)\n` +
+        `- Topics: animals, colors, family, food, toys, games, school, nature\n` +
+        `- Tone: Friendly, supportive, playful - like a fun teacher\n` +
+        `- Sentences should feel like a game or adventure\n` +
+        `- Use simple, positive vocabulary\n` +
+        `- Avoid: complex grammar, adult topics, negative emotions, scary content\n`
+      : "";
+
+    // C2 specific instructions for truly complex content
+    const c2Instructions = cefrLevel === "C2"
+      ? `\n\n🎓 C2 MASTERY LEVEL - CRITICAL REQUIREMENTS:\n` +
+        `- Sentences MUST be sophisticated with nuanced meaning\n` +
+        `- Use idiomatic expressions, proverbs, and cultural references\n` +
+        `- Include complex grammatical structures: subjunctive, passive, conditionals\n` +
+        `- Vocabulary should be advanced: euphemisms, formal register, literary terms\n` +
+        `- Topics: business negotiations, academic discourse, philosophical debates, cultural analysis\n` +
+        `- Sentences should challenge even near-native speakers\n` +
+        `- Include rhetorical devices: metaphor, irony, understatement\n`
       : "";
 
     const prompt = {
@@ -297,10 +365,12 @@ serve(async (req) => {
         "✅ 'What time does the museum close?'\n" +
         "✅ 'Can you recommend a good restaurant nearby?'\n" +
         "✅ 'My flight leaves at 3 o'clock tomorrow'\n\n" +
-        `CEFR Level: ${cefrLevel}\n` +
+        `CEFR Level: ${cefrLevel} (STRICT - follow exactly!)\n` +
         `Complexity: ${complexity}\n` +
+        `Grammar Focus: ${grammarFocus}\n` +
         `Sentence length: ${sentenceLength}\n` +
-        (kidsMode ? "MODE: Kids - Use simple, fun, encouraging language with emojis in hints!\n" : "") +
+        kidsModeInstructions +
+        c2Instructions +
         "\nEXERCISE TYPES TO GENERATE (exactly 10 exercises total):\n" +
         "1. multiple_choice: Translate English→${languageName} with 4 options (including correct)\n" +
         "2. translation: Type the ${languageName} translation of an English sentence\n" +
