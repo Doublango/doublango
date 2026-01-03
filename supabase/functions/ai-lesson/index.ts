@@ -55,11 +55,27 @@ const BANNED_PATTERNS = [
   /option\s?\d+/i,
 ];
 
-const containsBannedPattern = (text: string): boolean => {
-  if (!text || text.length < 3) return true;
-  return BANNED_PATTERNS.some(pattern => pattern.test(text));
+const isBannedQuestion = (text: string): boolean => {
+  const t = String(text || "").trim();
+  if (t.length < 3) return true;
+  return BANNED_PATTERNS.some((pattern) => pattern.test(t));
 };
 
+// Answers can legitimately be short (e.g., fill-in-the-blank). Only ban clearly low-quality/generic answers.
+const isBannedAnswer = (text: string): boolean => {
+  const t = String(text || "").trim();
+  if (!t) return true;
+
+  // Allow very short tokens like "a", "de", "y".
+  if (t.length < 2) return false;
+
+  // Still ban generic one-word answers like "hello", "yes", etc.
+  if (t.length <= 12) {
+    return BANNED_PATTERNS.some((pattern) => pattern.test(t));
+  }
+
+  return BANNED_PATTERNS.some((pattern) => pattern.test(t));
+};
 // Validate word_bank exercises
 const validateWordBank = (ex: AiExercise): AiExercise => {
   if (ex.exercise_type !== "word_bank") return ex;
@@ -372,15 +388,15 @@ serve(async (req) => {
         kidsModeInstructions +
         c2Instructions +
         "\nEXERCISE TYPES TO GENERATE (exactly 10 exercises total):\n" +
-        "1. multiple_choice: Translate English→${languageName} with 4 options (including correct)\n" +
-        "2. translation: Type the ${languageName} translation of an English sentence\n" +
-        "3. word_bank: Arrange words to form ${languageName} sentence (include ALL answer words + 3 distractors)\n" +
-        "4. match_pairs: Match 4 English words to ${languageName} translations\n" +
+        `1. multiple_choice: Translate English→${languageName} with 4 options (including correct)\n` +
+        `2. translation: Type the ${languageName} translation of an English sentence\n` +
+        `3. word_bank: Arrange words to form ${languageName} sentence (include ALL answer words + 3 distractors)\n` +
+        `4. match_pairs: Match 4 English words to ${languageName} translations\n` +
         "5. type_what_you_hear: Audio transcription - question shows the phrase, answer is same phrase\n" +
-        "6. fill_blank: Complete ${languageName} sentence with missing word(s)\n" +
+        `6. fill_blank: Complete ${languageName} sentence with missing word(s)\n` +
         "7. listen_and_select: Listen and pick correct meaning (4 English options)\n" +
-        "8. write_in_english: Translate ${languageName}→English\n" +
-        "9. speak_answer: Pronounce the ${languageName} phrase shown\n" +
+        `8. write_in_english: Translate ${languageName}→English\n` +
+        `9. speak_answer: Pronounce the ${languageName} phrase shown\n` +
         "10. flashcard: Vocabulary card with word on front, meaning on back\n\n" +
         "DISTRIBUTION: 2 multiple_choice, 1 translation, 2 word_bank, 1 match_pairs, " +
         "1 type_what_you_hear, 1 fill_blank, 1 listen_and_select, 1 write_in_english\n\n" +
@@ -388,9 +404,9 @@ serve(async (req) => {
         "- multiple_choice/listen_and_select: options: string[] (exactly 4, include correct)\n" +
         "- word_bank: options: { words: string[] } (all answer words + distractors, shuffled)\n" +
         "- match_pairs: options: { pairs: [{left: string, right: string}] } (4 pairs)\n" +
-        "- type_what_you_hear: question='Type: [phrase in ${languageName}]', correct_answer=same phrase\n" +
+        `- type_what_you_hear: question='Type: [phrase in ${languageName}]', correct_answer=same phrase\n` +
         "- fill_blank: question has '___', correct_answer is the missing word(s)\n" +
-        "- write_in_english: question shows ${languageName}, answer in English\n" +
+        `- write_in_english: question shows ${languageName}, answer in English\n` +
         "- flashcard: options: { front: string, back: string } for display\n" +
         "- speak_answer: no options needed\n" +
         exclusionNote,
@@ -463,23 +479,50 @@ serve(async (req) => {
     const exercises = Array.isArray(parsed.exercises) ? parsed.exercises : [];
 
     // Clean, validate, and filter exercises
-    const cleaned = exercises
-      .map((ex) => ({
-        exercise_type: clean(ex?.exercise_type) as ExerciseType,
-        question: clean(ex?.question),
-        correct_answer: clean(ex?.correct_answer),
-        hint: ex?.hint == null ? null : clean(ex?.hint),
-        options: ex?.options,
-      }))
+    const normalized = exercises.map((ex) => {
+      const exercise_type = clean(ex?.exercise_type) as ExerciseType;
+      const question = clean(ex?.question);
+      let correct_answer = clean(ex?.correct_answer);
+      const hint = ex?.hint == null ? null : clean(ex?.hint);
+      const options = ex?.options;
+
+      // Some exercise types often omit correct_answer in model output — normalize so the app always has one.
+      if (!correct_answer) {
+        if (exercise_type === "type_what_you_hear") {
+          correct_answer = question.replace(/^type\s*[:：]\s*/i, "").trim() || question;
+        } else if (exercise_type === "speak_answer") {
+          correct_answer = question.replace(/^(say|speak|pronounce|repeat)\s*[:：]\s*/i, "").trim() || question;
+        } else if (exercise_type === "flashcard") {
+          const ob = options as { front?: string; back?: string } | undefined;
+          correct_answer = clean(ob?.back) || clean(ob?.front) || "OK";
+        } else if (exercise_type === "match_pairs") {
+          correct_answer = "OK";
+        } else {
+          correct_answer = question || "OK";
+        }
+      }
+
+      return { exercise_type, question, correct_answer, hint, options } as AiExercise;
+    });
+
+    const cleanedStrict = normalized
       .filter((ex) => ex.exercise_type && ex.question && ex.correct_answer)
-      .filter((ex) => ex.correct_answer.length >= 2)
-      .filter((ex) => !containsBannedPattern(ex.question) && !containsBannedPattern(ex.correct_answer))
-      .filter((ex) => !excludeQuestions.some(used => 
-        used.toLowerCase() === ex.question.toLowerCase() || 
-        used.toLowerCase() === ex.correct_answer.toLowerCase()
-      ))
+      .filter((ex) => (ex.exercise_type === "fill_blank" ? ex.correct_answer.length >= 1 : ex.correct_answer.length >= 2))
+      .filter((ex) => !isBannedQuestion(ex.question))
+      .filter((ex) => !isBannedAnswer(ex.correct_answer))
+      .filter(
+        (ex) =>
+          !excludeQuestions.some(
+            (used) =>
+              used.toLowerCase() === ex.question.toLowerCase() ||
+              used.toLowerCase() === ex.correct_answer.toLowerCase(),
+          ),
+      )
       .map(validateWordBank)
       .slice(0, 10);
+
+    // If strict filtering is too aggressive, fall back to normalized (still validated) so the app never silently drops to A1 local content.
+    const cleaned = cleanedStrict.length > 0 ? cleanedStrict : normalized.map(validateWordBank).slice(0, 10);
 
     console.log(`Generated ${cleaned.length} valid exercises for ${lang} lesson ${lessonNo} section ${section} (${cefrLevel})`);
 
