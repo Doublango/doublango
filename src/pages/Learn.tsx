@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
-import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
@@ -16,6 +15,8 @@ import { bumpLessonQuestionSetVersion, bumpQuestionSetVersion, getLessonQuestion
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
+const DIFFICULTY_KEY = 'dbl_learn_difficulty_v1';
+
 type Unit = Database['public']['Tables']['units']['Row'];
 type Lesson = Database['public']['Tables']['lessons']['Row'];
 
@@ -24,7 +25,7 @@ interface UnitWithLessons extends Unit {
   completedLessons: number;
 }
 
-const CEFR_LEVELS = [
+const CEFR_LEVELS_ADULT = [
   { value: 'A1', label: 'A1 - Beginner', emoji: '🌱' },
   { value: 'A2', label: 'A2 - Elementary', emoji: '📗' },
   { value: 'B1', label: 'B1 - Intermediate', emoji: '📘' },
@@ -33,18 +34,54 @@ const CEFR_LEVELS = [
   { value: 'C2', label: 'C2 - Mastery', emoji: '🏆' },
 ];
 
+const CEFR_LEVELS_KIDS = [
+  { value: 'A1', label: 'Super Easy', emoji: '🌟' },
+  { value: 'A2', label: 'Easy', emoji: '⭐' },
+  { value: 'B1', label: 'Medium', emoji: '🎯' },
+];
+
+const readStoredDifficulty = (kidsMode: boolean): number => {
+  try {
+    const key = kidsMode ? `${DIFFICULTY_KEY}:kids` : `${DIFFICULTY_KEY}:adult`;
+    const raw = window.localStorage.getItem(key);
+    const n = Number(raw);
+    const max = kidsMode ? 2 : 5;
+    return Number.isFinite(n) && n >= 0 && n <= max ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const storeCurrentDifficulty = (level: number, kidsMode: boolean) => {
+  try {
+    const key = kidsMode ? `${DIFFICULTY_KEY}:kids` : `${DIFFICULTY_KEY}:adult`;
+    window.localStorage.setItem(key, String(level));
+  } catch {}
+};
+
 const Learn: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { toast } = useToast();
   const { settings: appSettings } = useAppSettings();
   const { user, loading: authLoading } = useAuth();
   const { activeCourse, loading: progressLoading } = useUserProgress();
   const [units, setUnits] = useState<UnitWithLessons[]>([]);
   const [loading, setLoading] = useState(true);
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
-  const [difficultyLevel, setDifficultyLevel] = useState<number>(0); // 0=A1, 1=A2, etc.
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(() => readStoredDifficulty(appSettings.kidsMode));
   const [questionSetVersion, setQuestionSetVersion] = useState<number>(0);
+
+  const CEFR_LEVELS = appSettings.kidsMode ? CEFR_LEVELS_KIDS : CEFR_LEVELS_ADULT;
+  const maxDifficultyIndex = CEFR_LEVELS.length - 1;
+
+  // Clamp difficulty when switching between modes
+  useEffect(() => {
+    const max = appSettings.kidsMode ? 2 : 5;
+    setDifficultyLevel((prev) => {
+      const stored = readStoredDifficulty(appSettings.kidsMode);
+      return Math.min(stored, max);
+    });
+  }, [appSettings.kidsMode]);
 
   // Only redirect to auth AFTER loading is complete and we're sure there's no user
   useEffect(() => {
@@ -110,15 +147,16 @@ const Learn: React.FC = () => {
 
   useEffect(() => {
     if (!activeCourse?.language_code) return;
-    const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+    const clamped = Math.min(difficultyLevel, maxDifficultyIndex);
+    const cefr = (CEFR_LEVELS[clamped]?.value || 'A1') as any;
     const mode = appSettings.kidsMode ? 'kids' : 'adult';
     setQuestionSetVersion(getQuestionSetVersion(activeCourse.language_code, cefr, mode));
-  }, [activeCourse?.language_code, difficultyLevel, appSettings.kidsMode]);
+  }, [activeCourse?.language_code, difficultyLevel, appSettings.kidsMode, CEFR_LEVELS, maxDifficultyIndex]);
 
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
   const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number; difficultyOverrideIndex?: number }) => {
-    const levelIndex = opts?.difficultyOverrideIndex ?? difficultyLevel;
+    const levelIndex = Math.min(opts?.difficultyOverrideIndex ?? difficultyLevel, maxDifficultyIndex);
     const cefr = (CEFR_LEVELS[levelIndex]?.value || 'A1') as any;
 
     const lang = activeCourse?.language_code;
@@ -136,7 +174,8 @@ const Learn: React.FC = () => {
       ? makeGenerationId(lang, cefr, lesson.lesson_number, qset, mode)
       : (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : String(Date.now()));
 
-    navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${qset}&gen=${encodeURIComponent(gen)}&section=${lesson.lesson_number}`);
+    // pass kidsMode to backend so it can cap complexity
+    navigate(`/lesson/${lesson.id}?cefr=${cefr}&qset=${qset}&gen=${encodeURIComponent(gen)}&section=${lesson.lesson_number}&kids=${mode === 'kids' ? '1' : '0'}`);
   };
 
   const isLessonUnlocked = (unitIndex: number, lessonIndex: number): boolean => {
@@ -184,21 +223,18 @@ const Learn: React.FC = () => {
             <span className="font-medium text-sm">{t('learn.difficultyLevel', 'Difficulty Level')}</span>
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-primary">
-                {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
+                {CEFR_LEVELS[Math.min(difficultyLevel, maxDifficultyIndex)]?.emoji} {CEFR_LEVELS[Math.min(difficultyLevel, maxDifficultyIndex)]?.label}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   if (!activeCourse?.language_code) return;
-                  const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+                  const clamped = Math.min(difficultyLevel, maxDifficultyIndex);
+                  const cefr = (CEFR_LEVELS[clamped]?.value || 'A1') as any;
                   const mode = appSettings.kidsMode ? 'kids' : 'adult';
                   const next = bumpQuestionSetVersion(activeCourse.language_code, cefr, mode);
                   setQuestionSetVersion(next);
-                  toast({
-                    title: t('learn.resetLevel', 'Questions refreshed'),
-                    description: t('learn.resetLevelDesc', 'New AI questions will generate the next time you open a lesson.'),
-                  });
                 }}
                 className="h-7 px-2 gap-1 text-muted-foreground hover:text-primary"
                 title={t('learn.resetLevel', 'Regenerate a brand-new set of AI questions for this difficulty')}
@@ -208,10 +244,11 @@ const Learn: React.FC = () => {
             </div>
           </div>
           <Slider
-            value={[difficultyLevel]}
+            value={[Math.min(difficultyLevel, maxDifficultyIndex)]}
             onValueChange={(val) => {
-              const nextIndex = val[0];
+              const nextIndex = Math.min(val[0], maxDifficultyIndex);
               setDifficultyLevel(nextIndex);
+              storeCurrentDifficulty(nextIndex, appSettings.kidsMode);
 
               // Requirement: moving the slider should reset the questions for that difficulty.
               if (!activeCourse?.language_code) return;
@@ -220,7 +257,7 @@ const Learn: React.FC = () => {
               const next = bumpQuestionSetVersion(activeCourse.language_code, nextCefr, mode);
               setQuestionSetVersion(next);
             }}
-            max={5}
+            max={maxDifficultyIndex}
             step={1}
             className="w-full"
           />
@@ -237,7 +274,8 @@ const Learn: React.FC = () => {
           {units.filter(unit => {
             // Filter units by CEFR level - show units at or below selected level
             const levelOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
-            const selectedCEFR = CEFR_LEVELS[difficultyLevel]?.value || 'A1';
+            const clamped = Math.min(difficultyLevel, maxDifficultyIndex);
+            const selectedCEFR = CEFR_LEVELS[clamped]?.value || 'A1';
             const unitLevel = unit.cefr_level || 'A1';
             return levelOrder.indexOf(unitLevel) <= levelOrder.indexOf(selectedCEFR);
           }).map((unit, unitIndex) => (
@@ -332,7 +370,8 @@ const Learn: React.FC = () => {
                                 e.preventDefault();
                                 e.stopPropagation();
                                 if (!activeCourse?.language_code) return;
-                                const cefr = (CEFR_LEVELS[difficultyLevel]?.value || 'A1') as any;
+                                const clamped = Math.min(difficultyLevel, maxDifficultyIndex);
+                                const cefr = (CEFR_LEVELS[clamped]?.value || 'A1') as any;
                                 const mode = appSettings.kidsMode ? 'kids' : 'adult';
                                 const nextLessonSet = bumpLessonQuestionSetVersion(
                                   activeCourse.language_code,
@@ -340,10 +379,6 @@ const Learn: React.FC = () => {
                                   lesson.lesson_number,
                                   mode
                                 );
-                                toast({
-                                  title: t('learn.resetLesson', 'Section refreshed'),
-                                  description: t('learn.resetLessonDesc', 'A new batch will generate when you open this lesson.'),
-                                });
                                 startLesson(lesson, { lessonSetVersionOverride: nextLessonSet });
                               }}
                               className="ml-2 h-8 w-8 p-0 text-muted-foreground hover:text-primary"

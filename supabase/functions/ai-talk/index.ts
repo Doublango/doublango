@@ -123,8 +123,10 @@ serve(async (req) => {
     const { languageCode, category, difficultyLevel, isKidsMode, usedPhrases, batchSize = 10 } = body;
     
     const lang = String(languageCode || "es").trim();
-    const cefrLevel = (difficultyLevel || "A1") as DifficultyLevel;
+    const rawCefr = (difficultyLevel || "A1") as DifficultyLevel;
     const kidsMode = Boolean(isKidsMode);
+    // Cap kids mode at B1
+    const cefrLevel: DifficultyLevel = kidsMode && ["B2", "C1", "C2"].includes(rawCefr) ? "B1" : rawCefr;
     const categoryHint = String(category || "").trim();
     const excludePhrases = Array.isArray(usedPhrases) ? usedPhrases.slice(0, 50) : [];
     const count = Math.min(Math.max(Number(batchSize) || 10, 5), 20);

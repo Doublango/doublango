@@ -33,15 +33,33 @@ const ADULT_DIFFICULTY_LEVELS = [
   { value: 'C2' as const, label: 'C2 - Mastery', emoji: '🏆' },
 ];
 
-// 6 levels for kids mode (mapped to simpler labels)
+// Kids mode capped at B1 (3 levels only)
 const KIDS_DIFFICULTY_LEVELS = [
   { value: 'A1' as const, label: 'Super Easy', emoji: '🌟' },
   { value: 'A2' as const, label: 'Easy', emoji: '⭐' },
   { value: 'B1' as const, label: 'Medium', emoji: '🎯' },
-  { value: 'B2' as const, label: 'Tricky', emoji: '🎨' },
-  { value: 'C1' as const, label: 'Hard', emoji: '🚀' },
-  { value: 'C2' as const, label: 'Super Hard', emoji: '🏆' },
 ];
+
+const TALK_DIFFICULTY_KEY = 'dbl_talk_difficulty_v1';
+
+const readStoredTalkDifficulty = (kidsMode: boolean): number => {
+  try {
+    const key = kidsMode ? `${TALK_DIFFICULTY_KEY}:kids` : `${TALK_DIFFICULTY_KEY}:adult`;
+    const raw = window.localStorage.getItem(key);
+    const n = Number(raw);
+    const max = kidsMode ? 2 : 5;
+    return Number.isFinite(n) && n >= 0 && n <= max ? n : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const storeCurrentTalkDifficulty = (level: number, kidsMode: boolean) => {
+  try {
+    const key = kidsMode ? `${TALK_DIFFICULTY_KEY}:kids` : `${TALK_DIFFICULTY_KEY}:adult`;
+    window.localStorage.setItem(key, String(level));
+  } catch {}
+};
 
 // Number word to digit mapping for accuracy calculation
 const NUMBER_WORDS: Record<string, string[]> = {
@@ -102,7 +120,16 @@ const Talk: React.FC = () => {
   const [transcript, setTranscript] = useState('');
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const [practiceComplete, setPracticeComplete] = useState(false);
-  const [difficultyLevel, setDifficultyLevel] = useState<number>(0);
+  const [difficultyLevel, setDifficultyLevel] = useState<number>(() => readStoredTalkDifficulty(settings.kidsMode));
+
+  // Clamp when switching between modes
+  useEffect(() => {
+    const max = isKidsMode ? 2 : 5;
+    setDifficultyLevel((prev) => {
+      const stored = readStoredTalkDifficulty(isKidsMode);
+      return Math.min(stored, max);
+    });
+  }, [isKidsMode]);
   const [sessionPhrases, setSessionPhrases] = useState<ActivePhrase[]>([]);
   const [usedPhraseKeys, setUsedPhraseKeys] = useState<Set<string>>(new Set());
   const [isGenerating, setIsGenerating] = useState(false);
@@ -641,8 +668,12 @@ const Talk: React.FC = () => {
             </span>
           </div>
           <Slider
-            value={[difficultyLevel]}
-            onValueChange={(val) => setDifficultyLevel(val[0])}
+            value={[Math.min(difficultyLevel, maxDifficultyIndex)]}
+            onValueChange={(val) => {
+              const clamped = Math.min(val[0], maxDifficultyIndex);
+              setDifficultyLevel(clamped);
+              storeCurrentTalkDifficulty(clamped, isKidsMode);
+            }}
             max={maxDifficultyIndex}
             step={1}
             className="w-full"
