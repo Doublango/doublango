@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,11 +11,11 @@ import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/languages';
 import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { bumpLessonQuestionSetVersion, bumpQuestionSetVersion, getLessonQuestionSetVersion, getQuestionSetVersion, makeGenerationId } from '@/lib/aiQuestionRegistry';
+import { bumpLessonQuestionSetVersion, clearUsedQuestionBank, getLessonQuestionSetVersion, getQuestionSetVersion, makeGenerationId, setLessonQuestionSetVersion as setLessonQsetVersion, setQuestionSetVersion as setGlobalQsetVersion } from '@/lib/aiQuestionRegistry';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import type { Database } from '@/integrations/supabase/types';
 
-const DIFFICULTY_KEY = 'dbl_learn_difficulty_v1';
+const DIFFICULTY_KEY = 'dbl_learn_difficulty_v2';
 
 type Unit = Database['public']['Tables']['units']['Row'];
 type Lesson = Database['public']['Tables']['lessons']['Row'];
@@ -153,6 +153,30 @@ const Learn: React.FC = () => {
     setQuestionSetVersion(getQuestionSetVersion(activeCourse.language_code, cefr, mode));
   }, [activeCourse?.language_code, difficultyLevel, appSettings.kidsMode, CEFR_LEVELS, maxDifficultyIndex]);
 
+  const resetQuestionsForDifficulty = useCallback(
+    (levelIndex: number) => {
+      if (!activeCourse?.language_code) return;
+      const lang = activeCourse.language_code;
+      const idx = Math.min(levelIndex, maxDifficultyIndex);
+      const cefr = (CEFR_LEVELS[idx]?.value || 'A1') as any;
+      const mode = appSettings.kidsMode ? 'kids' : 'adult';
+
+      // “Reset back to the beginning” for this level: set versions to 0 and clear no-repeat banks.
+      setGlobalQsetVersion(lang, cefr, 0, mode);
+
+      const lessonNumbers = Array.from(
+        new Set(units.flatMap((u) => u.lessons.map((l) => l.lesson_number))),
+      );
+      for (const lessonNo of lessonNumbers) {
+        setLessonQsetVersion(lang, cefr, lessonNo, 0, mode);
+        clearUsedQuestionBank(lang, cefr, lessonNo, mode);
+      }
+
+      setQuestionSetVersion(0);
+    },
+    [activeCourse?.language_code, appSettings.kidsMode, CEFR_LEVELS, maxDifficultyIndex, units],
+  );
+
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
   const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number; difficultyOverrideIndex?: number }) => {
@@ -228,16 +252,11 @@ const Learn: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => {
-                  if (!activeCourse?.language_code) return;
-                  const clamped = Math.min(difficultyLevel, maxDifficultyIndex);
-                  const cefr = (CEFR_LEVELS[clamped]?.value || 'A1') as any;
-                  const mode = appSettings.kidsMode ? 'kids' : 'adult';
-                  const next = bumpQuestionSetVersion(activeCourse.language_code, cefr, mode);
-                  setQuestionSetVersion(next);
-                }}
+                 onClick={() => {
+                   resetQuestionsForDifficulty(difficultyLevel);
+                 }}
                 className="h-7 px-2 gap-1 text-muted-foreground hover:text-primary"
-                title={t('learn.resetLevel', 'Regenerate a brand-new set of AI questions for this difficulty')}
+                title={t('learn.resetLevel', 'Reset questions for this difficulty')}
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </Button>
@@ -245,18 +264,14 @@ const Learn: React.FC = () => {
           </div>
           <Slider
             value={[Math.min(difficultyLevel, maxDifficultyIndex)]}
-            onValueChange={(val) => {
-              const nextIndex = Math.min(val[0], maxDifficultyIndex);
-              setDifficultyLevel(nextIndex);
-              storeCurrentDifficulty(nextIndex, appSettings.kidsMode);
+             onValueChange={(val) => {
+               const nextIndex = Math.min(val[0], maxDifficultyIndex);
+               setDifficultyLevel(nextIndex);
+               storeCurrentDifficulty(nextIndex, appSettings.kidsMode);
 
-              // Requirement: moving the slider should reset the questions for that difficulty.
-              if (!activeCourse?.language_code) return;
-              const nextCefr = (CEFR_LEVELS[nextIndex]?.value || 'A1') as any;
-              const mode = appSettings.kidsMode ? 'kids' : 'adult';
-              const next = bumpQuestionSetVersion(activeCourse.language_code, nextCefr, mode);
-              setQuestionSetVersion(next);
-            }}
+               // Requirement: moving the slider should reset the questions for that difficulty.
+               resetQuestionsForDifficulty(nextIndex);
+             }}
             max={maxDifficultyIndex}
             step={1}
             className="w-full"

@@ -48,6 +48,12 @@ export const getQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel, mode?
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
 };
 
+export const setQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel, version: number, mode?: ModeKey): number => {
+  const v = Number.isFinite(version) && version >= 0 ? Math.floor(version) : 0;
+  safeSet(qsetKey(lang, cefr, mode), String(v));
+  return v;
+};
+
 export const bumpQuestionSetVersion = (lang: LanguageCode, cefr: CEFRLevel, mode?: ModeKey): number => {
   const next = getQuestionSetVersion(lang, cefr, mode) + 1;
   safeSet(qsetKey(lang, cefr, mode), String(next));
@@ -63,6 +69,18 @@ export const getLessonQuestionSetVersion = (
   const raw = safeGet(qsetLessonKey(lang, cefr, lessonNumber, mode));
   const n = Number(raw);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : 0;
+};
+
+export const setLessonQuestionSetVersion = (
+  lang: LanguageCode,
+  cefr: CEFRLevel,
+  lessonNumber: number,
+  version: number,
+  mode?: ModeKey
+): number => {
+  const v = Number.isFinite(version) && version >= 0 ? Math.floor(version) : 0;
+  safeSet(qsetLessonKey(lang, cefr, lessonNumber, mode), String(v));
+  return v;
 };
 
 export const bumpLessonQuestionSetVersion = (
