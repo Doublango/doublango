@@ -213,6 +213,22 @@ export const sanitizeLessonExercises = (
         options = null;
         break;
       }
+      case "listen_and_select": {
+        question = picked.target;
+        correct = picked.en;
+        const wrongMeanings = seededShuffle(
+          pairs.filter((p) => p.target !== picked.target).map((p) => p.en),
+          seed
+        ).slice(0, 3);
+        options = seededShuffle([correct, ...wrongMeanings], seed + 3);
+        break;
+      }
+      case "write_in_english": {
+        question = picked.target;
+        correct = picked.en;
+        options = null;
+        break;
+      }
       case "match_pairs": {
         const rngPairs = seededShuffle(pairs, seed).slice(0, 4);
         question = "Match the pairs";
@@ -220,6 +236,12 @@ export const sanitizeLessonExercises = (
         options = {
           pairs: rngPairs.map((p) => ({ left: p.en, right: p.target })),
         };
+        break;
+      }
+      case "flashcard": {
+        question = picked.en;
+        correct = picked.target;
+        options = { front: picked.en, back: picked.target };
         break;
       }
       default: {

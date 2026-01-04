@@ -398,17 +398,25 @@ serve(async (req) => {
         `8. write_in_english: Translate ${languageName}→English\n` +
         `9. speak_answer: Pronounce the ${languageName} phrase shown\n` +
         "10. flashcard: Vocabulary card with word on front, meaning on back\n\n" +
-        "DISTRIBUTION: 2 multiple_choice, 1 translation, 2 word_bank, 1 match_pairs, " +
-        "1 type_what_you_hear, 1 fill_blank, 1 listen_and_select, 1 write_in_english\n\n" +
+        "DISTRIBUTION (10 exercises): 2 multiple_choice, 1 translation, 2 word_bank, 1 match_pairs, " +
+        "1 type_what_you_hear, 1 speak_answer, 1 listen_and_select, 1 write_in_english\n\n" +
+        "🚨 CRITICAL - EVERY EXERCISE MUST BE FULLY ANSWERABLE:\n" +
+        "- Multiple choice: MUST have exactly 4 distinct options array (1 correct + 3 distractors)\n" +
+        "- Word bank: MUST include ALL words from correct_answer plus 3-4 distractors in words array\n" +
+        "- Match pairs: MUST have exactly 4 complete pairs with both left AND right filled\n" +
+        "- Listen/select: MUST have exactly 4 English meaning options (1 correct + 3 distractors)\n" +
+        "- Translation/fill_blank: options array optional but helpful (word hints)\n" +
+        "- Type_what_you_hear/speak_answer/write_in_english: no options needed\n\n" +
         "OPTIONS FORMATS:\n" +
-        "- multiple_choice/listen_and_select: options: string[] (exactly 4, include correct)\n" +
-        "- word_bank: options: { words: string[] } (all answer words + distractors, shuffled)\n" +
-        "- match_pairs: options: { pairs: [{left: string, right: string}] } (4 pairs)\n" +
-        `- type_what_you_hear: question='Type: [phrase in ${languageName}]', correct_answer=same phrase\n` +
-        "- fill_blank: question has '___', correct_answer is the missing word(s)\n" +
-        `- write_in_english: question shows ${languageName}, answer in English\n` +
-        "- flashcard: options: { front: string, back: string } for display\n" +
-        "- speak_answer: no options needed\n" +
+        "- multiple_choice: options: [\"correct answer\", \"distractor1\", \"distractor2\", \"distractor3\"]\n" +
+        "- listen_and_select: options: [\"correct English meaning\", \"wrong1\", \"wrong2\", \"wrong3\"]\n" +
+        "- word_bank: options: { words: [\"word1\", \"word2\", \"word3\", \"distractor1\", \"distractor2\"] }\n" +
+        "- match_pairs: options: { pairs: [{left: \"English1\", right: \"Target1\"}, {left: \"English2\", right: \"Target2\"}, {left: \"English3\", right: \"Target3\"}, {left: \"English4\", right: \"Target4\"}] }\n" +
+        `- type_what_you_hear: question='Type what you hear', correct_answer='[phrase in ${languageName}]'\n` +
+        "- fill_blank: question='Complete: I ___ to school', correct_answer='go'\n" +
+        `- write_in_english: question='[${languageName} phrase]', correct_answer='[English translation]'\n` +
+        `- speak_answer: question='Speak this phrase', correct_answer='[phrase in ${languageName}]'\n` +
+        "- translation: question='Translate: [English phrase]', correct_answer='[Target language]'\n" +
         exclusionNote,
     };
 
@@ -505,7 +513,59 @@ serve(async (req) => {
       return { exercise_type, question, correct_answer, hint, options } as AiExercise;
     });
 
-    const cleanedStrict = normalized
+    const normalizeStringArray = (v: unknown): string[] => {
+      if (!v) return [];
+      if (Array.isArray(v)) return v.map((x) => clean(x)).filter(Boolean);
+      // Sometimes models wrap as { options: [...] }
+      if (typeof v === "object") {
+        const anyV = v as Record<string, unknown>;
+        if (Array.isArray(anyV.options)) return (anyV.options as unknown[]).map((x) => clean(x)).filter(Boolean);
+      }
+      return [];
+    };
+
+    const includesCorrect = (opts: string[], correct: string) =>
+      opts.some((o) => o.toLowerCase() === correct.toLowerCase());
+
+    const ensureAnswerable = (ex: AiExercise): AiExercise => {
+      const correct = clean(ex.correct_answer);
+      if (!correct) return ex;
+
+      if (ex.exercise_type === "multiple_choice" || ex.exercise_type === "select_sentence") {
+        const opts = normalizeStringArray(ex.options);
+        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, options: opts };
+
+        const merged = Array.from(new Set([correct, ...opts])).filter(Boolean).slice(0, 4);
+        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, options: merged };
+
+        // Avoid blocking the UI: downgrade to a type that doesn't require options.
+        return { ...ex, exercise_type: "translation", options: undefined };
+      }
+
+      if (ex.exercise_type === "listen_and_select") {
+        const opts = normalizeStringArray(ex.options);
+        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, options: opts };
+
+        const merged = Array.from(new Set([correct, ...opts])).filter(Boolean).slice(0, 4);
+        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, options: merged };
+
+        // Avoid blocking the UI: degrade to typing English answer.
+        return { ...ex, exercise_type: "write_in_english", options: undefined };
+      }
+
+      if (ex.exercise_type === "flashcard") {
+        const ob = ex.options as { front?: string; back?: string } | undefined;
+        const front = clean(ob?.front) || clean(ex.question);
+        const back = clean(ob?.back) || correct;
+        return { ...ex, options: { front, back } };
+      }
+
+      return ex;
+    };
+
+    const answerable = normalized.map(ensureAnswerable);
+
+    const cleanedStrict = answerable
       .filter((ex) => ex.exercise_type && ex.question && ex.correct_answer)
       .filter((ex) => (ex.exercise_type === "fill_blank" ? ex.correct_answer.length >= 1 : ex.correct_answer.length >= 2))
       .filter((ex) => !isBannedQuestion(ex.question))
@@ -521,8 +581,8 @@ serve(async (req) => {
       .map(validateWordBank)
       .slice(0, 10);
 
-    // If strict filtering is too aggressive, fall back to normalized (still validated) so the app never silently drops to A1 local content.
-    const cleaned = cleanedStrict.length > 0 ? cleanedStrict : normalized.map(validateWordBank).slice(0, 10);
+    // If strict filtering is too aggressive, fall back to answerable exercises so the app never blocks.
+    const cleaned = cleanedStrict.length > 0 ? cleanedStrict : answerable.map(validateWordBank).slice(0, 10);
 
     console.log(`Generated ${cleaned.length} valid exercises for ${lang} lesson ${lessonNo} section ${section} (${cefrLevel})`);
 
