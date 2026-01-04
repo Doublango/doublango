@@ -36,21 +36,73 @@ const clampLesson = (n: unknown) => {
 
 const clean = (v: unknown) => String(v ?? "").trim();
 
+const VALID_EXERCISE_TYPES: ExerciseType[] = [
+  "multiple_choice",
+  "translation",
+  "match_pairs",
+  "fill_blank",
+  "type_what_you_hear",
+  "speak_answer",
+  "word_bank",
+  "select_sentence",
+  "listen_and_select",
+  "write_in_english",
+  "flashcard",
+];
+
+const VALID_TYPE_SET = new Set<string>(VALID_EXERCISE_TYPES);
+
+const isValidExerciseType = (t: unknown): t is ExerciseType => {
+  const s = clean(t);
+  return !!s && VALID_TYPE_SET.has(s);
+};
+
+const inferExerciseType = (ex: any): ExerciseType => {
+  const raw = clean(ex?.exercise_type);
+  if (isValidExerciseType(raw)) return raw;
+
+  const q = clean(ex?.question).toLowerCase();
+  const opts = ex?.options;
+
+  if (opts && typeof opts === "object") {
+    const o: any = opts;
+    if (Array.isArray(o.pairs)) return "match_pairs";
+    if (Array.isArray(o.words)) return "word_bank";
+    if (typeof o.front === "string" || typeof o.back === "string") return "flashcard";
+  }
+
+  if (q.includes("speak")) return "speak_answer";
+  if (q.includes("type what you hear")) return "type_what_you_hear";
+  if (q.startsWith("listen:") || q.includes("select the meaning of")) return "listen_and_select";
+  if (q.startsWith("translate")) return "translation";
+  if (q.includes("___") || q.startsWith("complete:") || q.includes("fill in")) return "fill_blank";
+  if (Array.isArray(opts)) return "multiple_choice";
+
+  return "translation";
+};
+
+const stripQuotes = (s: string) => s.replace(/^['"“”]+|['"“”]+$/g, "").trim();
+
+const extractEnglishFromTranslateQuestion = (q: string): string | null => {
+  const raw = clean(q);
+  const m = raw.match(/^translate\s*[:：]\s*(.+)$/i);
+  if (!m) return null;
+  return stripQuotes(m[1]);
+};
+
 // BANNED PATTERNS - these overused sentences must NEVER appear
+// NOTE: Do NOT ban UI instruction strings like "Type what you hear" or "Word bank".
 const BANNED_PATTERNS = [
   /\bi am (happy|sad|tired|hungry|thirsty|fine|good|bad|okay|great|well|cold|hot|ready|busy)\b/i,
   /\bthe (cat|dog|bird|fish) is (big|small|black|white|brown|cute|nice|good|bad)\b/i,
   /\b(she|he) is (nice|tall|short|young|old|happy|sad|good|bad)\b/i,
   /\bit is (good|bad|nice|big|small|hot|cold|new|old)\b/i,
   /\bthis is (a|an|the)?\s*(book|pen|apple|cat|dog|table|chair|car)\b/i,
-  /\baudio transcript\b/i,
-  /\bword bank\b/i,
-  /\btype what you hear\b/i,
   /^(yes|no|hello|hi|bye|good|bad|nice|okay|ok)$/i,
   /\bi _+ (happy|sad|tired|good|bad|fine)\b/i,
   /placeholder/i,
   /example/i,
-  /translation1/i,
+  /translation\s?\d+/i,
   /word\s?\d+/i,
   /option\s?\d+/i,
 ];
@@ -409,7 +461,7 @@ serve(async (req) => {
         "- Type_what_you_hear/speak_answer/write_in_english: no options needed\n\n" +
         "OPTIONS FORMATS:\n" +
         "- multiple_choice: options: [\"correct answer\", \"distractor1\", \"distractor2\", \"distractor3\"]\n" +
-        "- listen_and_select: options: [\"correct English meaning\", \"wrong1\", \"wrong2\", \"wrong3\"]\n" +
+        `- listen_and_select: question='Listen: [phrase in ${languageName}]', correct_answer='[English meaning]', options: [\"correct English meaning\", \"wrong1\", \"wrong2\", \"wrong3\"]\n` +
         "- word_bank: options: { words: [\"word1\", \"word2\", \"word3\", \"distractor1\", \"distractor2\"] }\n" +
         "- match_pairs: options: { pairs: [{left: \"English1\", right: \"Target1\"}, {left: \"English2\", right: \"Target2\"}, {left: \"English3\", right: \"Target3\"}, {left: \"English4\", right: \"Target4\"}] }\n" +
         `- type_what_you_hear: question='Type what you hear', correct_answer='[phrase in ${languageName}]'\n` +
@@ -444,7 +496,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
-        temperature: 0.95,
+        temperature: 0.4,
         response_format: { type: "json_object" },
         messages: [prompt, userMsg],
       }),
@@ -487,26 +539,27 @@ serve(async (req) => {
     const exercises = Array.isArray(parsed.exercises) ? parsed.exercises : [];
 
     // Clean, validate, and filter exercises
-    const normalized = exercises.map((ex) => {
-      const exercise_type = clean(ex?.exercise_type) as ExerciseType;
-      const question = clean(ex?.question);
-      let correct_answer = clean(ex?.correct_answer);
-      const hint = ex?.hint == null ? null : clean(ex?.hint);
-      const options = ex?.options;
+    const normalized = exercises.map((raw) => {
+      const exercise_type = inferExerciseType(raw);
+      const question = clean(raw?.question);
+      let correct_answer = clean(raw?.correct_answer);
+      const hint = raw?.hint == null ? null : clean(raw?.hint);
+      const options = raw?.options;
 
       // Some exercise types often omit correct_answer in model output — normalize so the app always has one.
       if (!correct_answer) {
-        if (exercise_type === "type_what_you_hear") {
-          correct_answer = question.replace(/^type\s*[:：]\s*/i, "").trim() || question;
-        } else if (exercise_type === "speak_answer") {
-          correct_answer = question.replace(/^(say|speak|pronounce|repeat)\s*[:：]\s*/i, "").trim() || question;
-        } else if (exercise_type === "flashcard") {
+        if (exercise_type === "flashcard") {
           const ob = options as { front?: string; back?: string } | undefined;
-          correct_answer = clean(ob?.back) || clean(ob?.front) || "OK";
+          correct_answer = clean(ob?.back) || clean(ob?.front) || "DONE";
         } else if (exercise_type === "match_pairs") {
-          correct_answer = "OK";
+          correct_answer = "MATCHED";
+        } else if (exercise_type === "type_what_you_hear") {
+          // UI uses correct_answer as the audio phrase.
+          correct_answer = clean((options as any)?.phrase) || "DONE";
+        } else if (exercise_type === "speak_answer") {
+          correct_answer = clean((options as any)?.phrase) || "DONE";
         } else {
-          correct_answer = question || "OK";
+          correct_answer = question || "DONE";
         }
       }
 
@@ -527,46 +580,107 @@ serve(async (req) => {
     const includesCorrect = (opts: string[], correct: string) =>
       opts.some((o) => o.toLowerCase() === correct.toLowerCase());
 
-    const ensureAnswerable = (ex: AiExercise): AiExercise => {
-      const correct = clean(ex.correct_answer);
-      if (!correct) return ex;
+    const looksLikeListenPrompt = (q: string) =>
+      /^listen\s*[:：]/i.test(q) || /select the meaning of\s*[:：]?/i.test(q);
 
-      if (ex.exercise_type === "multiple_choice" || ex.exercise_type === "select_sentence") {
+    const buildWordBankOptions = (answer: string, pool: string[]) => {
+      const base = answer
+        .replace(/[“”"']/g, "")
+        .trim()
+        .split(/\s+/)
+        .filter(Boolean);
+
+      const distractors = pool
+        .flatMap((s) => s.split(/\s+/))
+        .map((w) => w.trim())
+        .filter((w) => w && !base.includes(w))
+        .slice(0, 20);
+
+      // 3-4 distractors
+      const extra = distractors.sort(() => 0.5 - Math.random()).slice(0, 4);
+      const words = [...new Set([...base, ...extra])].sort(() => 0.5 - Math.random());
+      return { words };
+    };
+
+    const coerceMatchPairs = (options: unknown) => {
+      const o = options as any;
+      const pairs = Array.isArray(o?.pairs) ? o.pairs : Array.isArray(o) ? o : [];
+      const cleaned = pairs
+        .map((p: any) => ({ left: clean(p?.left), right: clean(p?.right) }))
+        .filter((p: any) => p.left && p.right);
+      return cleaned.length >= 4 ? { pairs: cleaned.slice(0, 4) } : null;
+    };
+
+    const ensureAnswerable = (ex: AiExercise): AiExercise => {
+      const exercise_type = isValidExerciseType(ex.exercise_type) ? ex.exercise_type : inferExerciseType(ex);
+      const question = clean(ex.question);
+      const correct = clean(ex.correct_answer);
+
+      if (exercise_type === "multiple_choice" || exercise_type === "select_sentence") {
         const opts = normalizeStringArray(ex.options);
-        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, options: opts };
+        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, exercise_type, options: opts };
 
         const merged = Array.from(new Set([correct, ...opts])).filter(Boolean).slice(0, 4);
-        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, options: merged };
+        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, exercise_type, options: merged };
 
         // Avoid blocking the UI: downgrade to a type that doesn't require options.
         return { ...ex, exercise_type: "translation", options: undefined };
       }
 
-      if (ex.exercise_type === "listen_and_select") {
+      if (exercise_type === "listen_and_select") {
         const opts = normalizeStringArray(ex.options);
-        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, options: opts };
+        // Must have a target-language phrase in the question for TTS.
+        if (!looksLikeListenPrompt(question)) {
+          // We'll restore a proper listen_and_select later from pairs; keep this answerable now.
+          return { ...ex, exercise_type: "write_in_english", options: undefined };
+        }
+
+        if (opts.length === 4 && includesCorrect(opts, correct)) return { ...ex, exercise_type, options: opts };
 
         const merged = Array.from(new Set([correct, ...opts])).filter(Boolean).slice(0, 4);
-        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, options: merged };
+        if (merged.length === 4 && includesCorrect(merged, correct)) return { ...ex, exercise_type, options: merged };
 
-        // Avoid blocking the UI: degrade to typing English answer.
         return { ...ex, exercise_type: "write_in_english", options: undefined };
       }
 
-      if (ex.exercise_type === "flashcard") {
-        const ob = ex.options as { front?: string; back?: string } | undefined;
-        const front = clean(ob?.front) || clean(ex.question);
-        const back = clean(ob?.back) || correct;
-        return { ...ex, options: { front, back } };
+      if (exercise_type === "word_bank") {
+        const o = ex.options as any;
+        const words = Array.isArray(o?.words) ? o.words.map((w: any) => clean(w)).filter(Boolean) : [];
+        if (words.length >= 4) return { ...ex, exercise_type, options: { words } };
+        // Build a proper word bank.
+        return { ...ex, exercise_type, options: buildWordBankOptions(correct, [question]) };
       }
 
-      return ex;
+      if (exercise_type === "match_pairs") {
+        const mp = coerceMatchPairs(ex.options);
+        if (mp) return { ...ex, exercise_type, correct_answer: "MATCHED", options: mp };
+        // We'll regenerate a valid match_pairs later from pairs.
+        return { ...ex, exercise_type: "translation", options: undefined };
+      }
+
+      if (exercise_type === "flashcard") {
+        const ob = ex.options as { front?: string; back?: string } | undefined;
+        const front = clean(ob?.front) || question;
+        const back = clean(ob?.back) || correct;
+        return { ...ex, exercise_type, options: { front, back } };
+      }
+
+      if (exercise_type === "type_what_you_hear") {
+        // Question must be the instruction, answer is the phrase.
+        return { ...ex, exercise_type, question: question || "Type what you hear" };
+      }
+
+      if (exercise_type === "speak_answer") {
+        return { ...ex, exercise_type, question: question || "Speak this phrase" };
+      }
+
+      return { ...ex, exercise_type };
     };
 
     const answerable = normalized.map(ensureAnswerable);
 
     const cleanedStrict = answerable
-      .filter((ex) => ex.exercise_type && ex.question && ex.correct_answer)
+      .filter((ex) => isValidExerciseType(ex.exercise_type) && ex.question && ex.correct_answer)
       .filter((ex) => (ex.exercise_type === "fill_blank" ? ex.correct_answer.length >= 1 : ex.correct_answer.length >= 2))
       .filter((ex) => !isBannedQuestion(ex.question))
       .filter((ex) => !isBannedAnswer(ex.correct_answer))
@@ -581,8 +695,133 @@ serve(async (req) => {
       .map(validateWordBank)
       .slice(0, 10);
 
-    // If strict filtering is too aggressive, fall back to answerable exercises so the app never blocks.
-    const cleaned = cleanedStrict.length > 0 ? cleanedStrict : answerable.map(validateWordBank).slice(0, 10);
+    const base = cleanedStrict.length > 0 ? cleanedStrict : answerable.map(validateWordBank).slice(0, 10);
+
+    const ensureVariety = (items: AiExercise[]): AiExercise[] => {
+      const out = [...items];
+
+      const pairs: Array<{ en: string; target: string }> = [];
+      for (const ex of out) {
+        if (ex.exercise_type === "translation") {
+          const en = extractEnglishFromTranslateQuestion(ex.question);
+          if (en) pairs.push({ en, target: clean(ex.correct_answer) });
+        }
+        if (ex.exercise_type === "write_in_english") {
+          const en = clean(ex.correct_answer);
+          const target = clean(ex.question);
+          if (en && target) pairs.push({ en, target });
+        }
+      }
+
+      // De-dupe pairs
+      const uniqPairs: Array<{ en: string; target: string }> = [];
+      const seen = new Set<string>();
+      for (const p of pairs) {
+        const k = `${p.en}|||${p.target}`.toLowerCase();
+        if (seen.has(k)) continue;
+        seen.add(k);
+        uniqPairs.push(p);
+      }
+
+      const hasType = (t: ExerciseType) => out.some((e) => e.exercise_type === t);
+
+      const englishPool = uniqPairs.map((p) => p.en).filter(Boolean);
+      const targetPool = uniqPairs.map((p) => p.target).filter(Boolean);
+
+      const add = (ex: AiExercise) => {
+        out.push(ex);
+      };
+
+      // Build missing interactive types from existing translation pairs
+      if (uniqPairs.length >= 4 && !hasType("match_pairs")) {
+        add({
+          exercise_type: "match_pairs",
+          question: "Match the pairs",
+          correct_answer: "MATCHED",
+          hint: "Match each English phrase to the correct translation.",
+          options: { pairs: uniqPairs.slice(0, 4).map((p) => ({ left: p.en, right: p.target })) },
+        });
+      }
+
+      if (uniqPairs.length >= 1 && !hasType("word_bank")) {
+        const p = uniqPairs[0];
+        add({
+          exercise_type: "word_bank",
+          question: `Arrange the words: ${p.en}`,
+          correct_answer: p.target,
+          hint: "Tap the words to build the sentence.",
+          options: buildWordBankOptions(p.target, targetPool),
+        });
+      }
+
+      if (uniqPairs.length >= 1 && !hasType("type_what_you_hear")) {
+        const p = uniqPairs[0];
+        add({
+          exercise_type: "type_what_you_hear",
+          question: "Type what you hear",
+          correct_answer: p.target,
+          hint: "Listen carefully and type the sentence.",
+        });
+      }
+
+      if (uniqPairs.length >= 1 && !hasType("speak_answer")) {
+        const p = uniqPairs[0];
+        add({
+          exercise_type: "speak_answer",
+          question: "Speak this phrase",
+          correct_answer: p.target,
+          hint: "Try to pronounce it clearly.",
+        });
+      }
+
+      if (uniqPairs.length >= 4 && !hasType("listen_and_select")) {
+        const p = uniqPairs[0];
+        const distractors = englishPool.filter((x) => x.toLowerCase() !== p.en.toLowerCase()).slice(0, 3);
+        const opts = [p.en, ...distractors].slice(0, 4).sort(() => 0.5 - Math.random());
+        if (opts.length === 4) {
+          add({
+            exercise_type: "listen_and_select",
+            question: `Listen: ${p.target}`,
+            correct_answer: p.en,
+            hint: "Listen to the phrase and choose the correct meaning.",
+            options: opts,
+          });
+        }
+      }
+
+      if (uniqPairs.length >= 1 && !hasType("write_in_english")) {
+        const p = uniqPairs[0];
+        add({
+          exercise_type: "write_in_english",
+          question: p.target,
+          correct_answer: p.en,
+          hint: "Translate into English.",
+        });
+      }
+
+      // Trim back to 10, prioritizing variety (remove extra translation/multiple_choice first)
+      const typeCount = (arr: AiExercise[]) => {
+        const c: Record<string, number> = {};
+        for (const e of arr) c[e.exercise_type] = (c[e.exercise_type] || 0) + 1;
+        return c;
+      };
+
+      while (out.length > 10) {
+        const counts = typeCount(out);
+        const removeIdx = out.findIndex(
+          (e) => (e.exercise_type === "translation" || e.exercise_type === "multiple_choice") && (counts[e.exercise_type] || 0) > 1,
+        );
+        if (removeIdx >= 0) {
+          out.splice(removeIdx, 1);
+        } else {
+          out.pop();
+        }
+      }
+
+      return out;
+    };
+
+    const cleaned = ensureVariety(base).slice(0, 10);
 
     console.log(`Generated ${cleaned.length} valid exercises for ${lang} lesson ${lessonNo} section ${section} (${cefrLevel})`);
 
