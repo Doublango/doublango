@@ -11,7 +11,7 @@ import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import SpeechExercise from '@/components/SpeechExercise';
 import AudioExercise from '@/components/AudioExercise';
-import { X, Heart, Volume2, Mic, Check, ArrowRight, RotateCcw, Loader2 } from 'lucide-react';
+import { X, Heart, Volume2, Mic, Check, ArrowRight, RotateCcw, Loader2, Turtle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
 import { speak } from '@/lib/tts';
@@ -45,6 +45,48 @@ const normalizeOptions = (options: unknown): string[] => {
     });
   }
   return [];
+};
+
+// Normalize user input + correct answers for comparison
+const normalizeForAnswerCompare = (value: string): string => {
+  // keep diacritics (accents), but ignore case + punctuation differences
+  const v = (value ?? '')
+    .normalize('NFKC')
+    .replace(/[’]/g, "'")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+
+  // Remove leading/trailing punctuation and most symbols, keep letters/numbers/spaces/apostrophes/hyphens
+  return v
+    .replace(/^[^\p{L}\p{N}]*/gu, '')
+    .replace(/[^\p{L}\p{N}]+$/gu, '')
+    .replace(/[^\p{L}\p{N}\s'\-]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const hashString = (input: string): number => {
+  let h = 2166136261;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+};
+
+const seededShuffle = <T,>(arr: T[], seed: number): T[] => {
+  const out = [...arr];
+  let s = seed || 1;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 0xffffffff;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
 };
 
 // Helper to generate word bank words from correct answer
@@ -280,12 +322,24 @@ const LessonPage: React.FC = () => {
   }, [currentIndex, exercises]);
 
   const shuffleArray = <T,>(array: T[]): T[] => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    const original = [...array];
+    const tryShuffle = (): T[] => {
+      const shuffled = [...array];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+      return shuffled;
+    };
+
+    // Avoid returning the exact same order too often (especially noticeable for word-bank)
+    if (original.length <= 1) return original;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const next = tryShuffle();
+      const same = next.every((v, i) => v === original[i]);
+      if (!same) return next;
     }
-    return shuffled;
+    return tryShuffle();
   };
 
   const currentExercise = exercises[currentIndex];
@@ -317,22 +371,23 @@ const LessonPage: React.FC = () => {
     if (!currentExercise) return;
 
     let correct = false;
-    const correctAnswer = currentExercise.correct_answer.toLowerCase().trim();
+
+    const correctNorm = normalizeForAnswerCompare(currentExercise.correct_answer);
 
     switch (currentExercise.exercise_type) {
       case 'multiple_choice':
       case 'select_sentence':
       case 'listen_and_select':
-        correct = selectedAnswer?.toLowerCase().trim() === correctAnswer;
+        correct = normalizeForAnswerCompare(selectedAnswer ?? '') === correctNorm;
         break;
       case 'translation':
       case 'fill_blank':
       case 'type_what_you_hear':
       case 'write_in_english':
-        correct = typedAnswer.toLowerCase().trim() === correctAnswer;
+        correct = normalizeForAnswerCompare(typedAnswer) === correctNorm;
         break;
       case 'word_bank':
-        correct = wordBankAnswer.join(' ').toLowerCase().trim() === correctAnswer;
+        correct = normalizeForAnswerCompare(wordBankAnswer.join(' ')) === correctNorm;
         break;
       case 'match_pairs':
         // Match pairs are checked as you go, so if we get here, it's complete
@@ -496,10 +551,10 @@ const LessonPage: React.FC = () => {
     setSelectedMatch(null);
   };
 
-  const speakText = useCallback((text: string) => {
+  const speakText = useCallback((text: string, slow = false) => {
     const langCode = activeCourse?.language_code || 'es';
     void speak(text, langCode, {
-      rate: 0.9,
+      rate: slow ? 0.6 : 0.9,
       engine: appSettings.ttsEngine,
       voiceURI: appSettings.ttsVoiceURI,
     });
@@ -663,13 +718,23 @@ const LessonPage: React.FC = () => {
               
               {/* Audio button (plays the answer in the target language) */}
               {currentExercise.exercise_type !== 'speak_answer' && (
-                <button
-                  onClick={() => speakText(currentExercise.correct_answer)}
-                  className="mt-4 w-full bg-primary/10 hover:bg-primary/20 rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors"
-                >
-                  <Volume2 className="w-6 h-6 text-primary" />
-                  <span className="font-medium text-primary">Listen</span>
-                </button>
+                <div className="mt-4 space-y-2">
+                  <button
+                    onClick={() => speakText(currentExercise.correct_answer, false)}
+                    className="w-full bg-primary/10 hover:bg-primary/20 rounded-2xl p-4 flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Volume2 className="w-6 h-6 text-primary" />
+                    <span className="font-medium text-primary">Listen</span>
+                  </button>
+
+                  <button
+                    onClick={() => speakText(currentExercise.correct_answer, true)}
+                    className="w-full rounded-2xl p-3 flex items-center justify-center gap-2 transition-colors bg-muted/60 hover:bg-muted"
+                  >
+                    <Turtle className="w-5 h-5 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Slow</span>
+                  </button>
+                </div>
               )}
             </div>
 
@@ -692,10 +757,10 @@ const LessonPage: React.FC = () => {
                       className={cn(
                         'w-full p-4 rounded-2xl border-2 text-left transition-all',
                         selectedAnswer === optionText && !isChecked && 'border-primary bg-primary/10',
-                        isChecked && optionText.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
+                        isChecked && normalizeForAnswerCompare(optionText) === normalizeForAnswerCompare(currentExercise.correct_answer) && 'border-success bg-success/10',
                         isChecked && selectedAnswer === optionText && !isCorrect && 'border-destructive bg-destructive/10',
                         !selectedAnswer && !isChecked && 'border-border hover:border-primary/50',
-                        isChecked && selectedAnswer !== optionText && optionText.toLowerCase() !== currentExercise.correct_answer.toLowerCase() && 'opacity-50'
+                        isChecked && selectedAnswer !== optionText && normalizeForAnswerCompare(optionText) !== normalizeForAnswerCompare(currentExercise.correct_answer) && 'opacity-50'
                       )}
                     >
                       {optionText}
@@ -711,10 +776,17 @@ const LessonPage: React.FC = () => {
                 const providedHints = currentExercise.options
                   ? normalizeOptions(currentExercise.options).filter(o => o.trim())
                   : [];
-                const wordHints = (providedHints.length > 0
+                const baseWordHints = (providedHints.length > 0
                   ? providedHints
                   : generateWordBankWords(currentExercise.correct_answer, null)
                 ).filter(w => w.trim());
+
+                // Make hints helpful but not trivially "already in order".
+                const wordHints = seededShuffle(
+                  baseWordHints,
+                  hashString(`${currentExercise.id}:${currentExercise.correct_answer}`),
+                );
+
                 const hasWordBank = wordHints.length > 0;
                 return (
                   <div className="space-y-4">
@@ -919,7 +991,7 @@ const LessonPage: React.FC = () => {
                         className={cn(
                           'w-full p-4 rounded-2xl border-2 text-left transition-all',
                           selectedAnswer === optionText && !isChecked && 'border-primary bg-primary/10',
-                          isChecked && optionText.toLowerCase() === currentExercise.correct_answer.toLowerCase() && 'border-success bg-success/10',
+                          isChecked && normalizeForAnswerCompare(optionText) === normalizeForAnswerCompare(currentExercise.correct_answer) && 'border-success bg-success/10',
                           isChecked && selectedAnswer === optionText && !isCorrect && 'border-destructive bg-destructive/10',
                           !selectedAnswer && !isChecked && 'border-border hover:border-primary/50'
                         )}

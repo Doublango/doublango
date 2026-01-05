@@ -2,7 +2,13 @@
 
 const timeout = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export const playGoogleTTSProxy = async (text: string, lang: string): Promise<void> => {
+const clamp = (n: number, min: number, max: number) => Math.max(min, Math.min(max, n));
+
+export const playGoogleTTSProxy = async (
+  text: string,
+  lang: string,
+  playbackRate?: number
+): Promise<void> => {
   const trimmed = text?.trim();
   if (!trimmed) return;
 
@@ -35,6 +41,11 @@ export const playGoogleTTSProxy = async (text: string, lang: string): Promise<vo
     audio.preload = "auto";
     audio.load();
 
+    // True slow mode: adjust playback speed instead of word-by-word pauses.
+    if (typeof playbackRate === 'number' && Number.isFinite(playbackRate)) {
+      audio.playbackRate = clamp(playbackRate, 0.5, 1.25);
+    }
+
     let done = false;
     const finish = () => {
       if (done) return;
@@ -56,3 +67,4 @@ export const playGoogleTTSProxy = async (text: string, lang: string): Promise<vo
     // ignore
   }
 };
+
