@@ -1,5 +1,5 @@
 import { getTTSLanguageCode } from "@/lib/languageContent";
-import { playGoogleTTSProxy } from "@/lib/tts/googleTtsProxy";
+import { playGoogleTTSProxy, stopGoogleTTSProxy } from "@/lib/tts/googleTtsProxy";
 
 export type SpeakOptions = {
   rate?: number;
@@ -13,7 +13,6 @@ export type SpeakOptions = {
   /** Only used for webspeech */
   voiceURI?: string | null;
 };
-
 
 const getSynth = () => {
   if (typeof window === "undefined") return null;
@@ -70,9 +69,9 @@ const pickBestVoice = (ttsLang: string): SpeechSynthesisVoice | undefined => {
  * This avoids browser/CORS blocks that break direct translate_tts playback.
  */
 const playGoogleTTS = async (text: string, lang: string, rate?: number): Promise<void> => {
+  stopGoogleTTSProxy();
   await playGoogleTTSProxy(text, lang, rate);
 };
-
 
 /**
  * Play using Web Speech API
@@ -95,9 +94,7 @@ const playWebSpeech = (text: string, ttsLang: string, opts: SpeakOptions): Promi
     utterance.volume = opts.volume ?? 1;
 
     const voices = refreshVoices();
-    const preferred = opts.voiceURI
-      ? voices.find((v) => v.voiceURI === opts.voiceURI)
-      : undefined;
+    const preferred = opts.voiceURI ? voices.find((v) => v.voiceURI === opts.voiceURI) : undefined;
 
     const voice = preferred || pickBestVoice(ttsLang);
     if (voice) utterance.voice = voice;
@@ -156,13 +153,12 @@ const playWebSpeech = (text: string, ttsLang: string, opts: SpeakOptions): Promi
 /**
  * Main speak function - tries Web Speech API first, then Google Translate TTS fallback
  */
-export const speak = async (
-  text: string,
-  languageCode: string,
-  opts: SpeakOptions = {}
-): Promise<void> => {
+export const speak = async (text: string, languageCode: string, opts: SpeakOptions = {}): Promise<void> => {
   const trimmed = text?.trim();
   if (!trimmed) return;
+
+  // Prevent overlapping TTS across engines
+  cancelSpeech();
 
   ensureVoiceListeners();
   const ttsLang = getTTSLanguageCode(languageCode);
@@ -183,6 +179,9 @@ export const speak = async (
 };
 
 export const cancelSpeech = () => {
+  // Stop proxy audio too (previously this only canceled Web Speech)
+  stopGoogleTTSProxy();
+
   const synth = getSynth();
   if (!synth) return;
   try {

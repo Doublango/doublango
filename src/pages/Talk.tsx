@@ -303,8 +303,34 @@ const Talk: React.FC = () => {
     return sessionPhrases[currentPhraseIndex] || null;
   }, [selectedCategory, sessionPhrases, currentPhraseIndex]);
 
+  const ensureMicPermission = useCallback(async () => {
+    // On mobile, prompting mic permission explicitly improves reliability
+    if (!navigator?.mediaDevices?.getUserMedia) return;
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+  }, []);
+
+  const stopListening = useCallback(() => {
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    try {
+      rec?.abort?.();
+    } catch {
+      try {
+        rec?.stop?.();
+      } catch {
+        // ignore
+      }
+    }
+    setIsListening(false);
+  }, []);
+
   const speakPhrase = useCallback(async (text: string, slow = false) => {
     if (isSpeaking || !text) return;
+
+    // Avoid speech recognition + TTS fighting each other
+    stopListening();
+    cancelSpeech();
 
     setIsSpeaking(true);
     try {
@@ -316,7 +342,7 @@ const Talk: React.FC = () => {
             engine: settings.ttsEngine,
             voiceURI: settings.ttsVoiceURI,
           });
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 200));
         }
       } else {
         await speak(text, languageCode, {
@@ -330,12 +356,24 @@ const Talk: React.FC = () => {
     } finally {
       setIsSpeaking(false);
     }
-  }, [languageCode, isSpeaking, settings.ttsEngine, settings.ttsVoiceURI]);
+  }, [languageCode, isSpeaking, settings.ttsEngine, settings.ttsVoiceURI, stopListening]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
       alert('Speech recognition is not supported in your browser');
+      return;
+    }
+
+    // Always reset any previous session (prevents "listen first" getting stuck)
+    stopListening();
+    cancelSpeech();
+
+    try {
+      await ensureMicPermission();
+    } catch {
+      // Permission denied or unavailable
+      setIsListening(false);
       return;
     }
 
@@ -346,11 +384,11 @@ const Talk: React.FC = () => {
     recognitionRef.current = recognition;
 
     recognition.onstart = () => setIsListening(true);
-    
+
     recognition.onresult = (event: any) => {
-      const spokenText = event.results[0][0].transcript;
+      const spokenText = event.results?.[0]?.[0]?.transcript ?? '';
       setTranscript(spokenText);
-      
+
       const phrase = getCurrentPhrase();
       if (phrase) {
         const acc = calculateAccuracy(phrase.translation, spokenText);
@@ -358,21 +396,20 @@ const Talk: React.FC = () => {
       }
     };
 
-    recognition.onend = () => setIsListening(false);
-    recognition.onerror = () => setIsListening(false);
+    const cleanup = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
 
-    recognition.start();
-  }, [languageCode, getCurrentPhrase]);
+    recognition.onend = cleanup;
+    recognition.onerror = cleanup;
 
-  const stopListening = useCallback(() => {
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
+    try {
+      recognition.start();
+    } catch {
+      cleanup();
     }
-    setIsListening(false);
-  }, []);
-
+  }, [ensureMicPermission, getCurrentPhrase, languageCode, stopListening]);
   const calculateAccuracy = (target: string, spoken: string): number => {
     const targetNormalized = normalizeForComparison(target);
     const spokenNormalized = normalizeForComparison(spoken);

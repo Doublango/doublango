@@ -11,10 +11,10 @@ import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import SpeechExercise from '@/components/SpeechExercise';
 import AudioExercise from '@/components/AudioExercise';
-import { X, Heart, Volume2, Mic, Check, ArrowRight, RotateCcw, Loader2, Turtle } from 'lucide-react';
+import { X, Heart, Volume2, Mic, Check, ArrowRight, RotateCcw, Loader2, Turtle, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sanitizeLessonExercises } from '@/lib/exerciseSanitizer';
-import { speak } from '@/lib/tts';
+import { speak, cancelSpeech } from '@/lib/tts';
 import { generateLessonForLanguage } from '@/lib/languageContent';
 import { generateAiLessonExercises, type CEFRLevel, type ExtendedExerciseType } from '@/lib/content/aiLesson';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -162,6 +162,7 @@ const LessonPage: React.FC = () => {
   const [mistakes, setMistakes] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isComplete, setIsComplete] = useState(false);
   const [monkeyMood, setMonkeyMood] = useState<'happy' | 'excited' | 'sad' | 'celebrating'>('happy');
   const [speechResult, setSpeechResult] = useState<{ correct: boolean; transcript: string; accuracy: number } | null>(null);
@@ -551,13 +552,22 @@ const LessonPage: React.FC = () => {
     setSelectedMatch(null);
   };
 
-  const speakText = useCallback((text: string, slow = false) => {
+  const speakText = useCallback(async (text: string, slow = false) => {
     const langCode = activeCourse?.language_code || 'es';
-    void speak(text, langCode, {
-      rate: slow ? 0.6 : 0.9,
-      engine: appSettings.ttsEngine,
-      voiceURI: appSettings.ttsVoiceURI,
-    });
+
+    // Prevent overlapping playback and allow "Stop"
+    cancelSpeech();
+    setIsAudioPlaying(true);
+
+    try {
+      await speak(text, langCode, {
+        rate: slow ? 0.6 : 0.9,
+        engine: appSettings.ttsEngine,
+        voiceURI: appSettings.ttsVoiceURI,
+      });
+    } finally {
+      setIsAudioPlaying(false);
+    }
   }, [activeCourse?.language_code, appSettings.ttsEngine, appSettings.ttsVoiceURI]);
 
   const handleSpeechResult = (correct: boolean, transcript: string, accuracy: number) => {
@@ -734,6 +744,20 @@ const LessonPage: React.FC = () => {
                     <Turtle className="w-5 h-5 text-muted-foreground" />
                     <span className="text-sm font-medium text-muted-foreground">Slow</span>
                   </button>
+
+                  {isAudioPlaying && (
+                    <button
+                      onClick={() => {
+                        cancelSpeech();
+                        setIsAudioPlaying(false);
+                      }}
+                      className="w-full rounded-2xl p-3 flex items-center justify-center gap-2 transition-colors bg-muted/60 hover:bg-muted"
+                      type="button"
+                    >
+                      <Square className="w-5 h-5 text-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground">Stop</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
