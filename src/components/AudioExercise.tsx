@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { RotateCcw, Volume2, Turtle } from 'lucide-react';
+import { RotateCcw, Volume2, Turtle, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, cancelSpeech, preloadVoices, isTTSSupported } from '@/lib/tts';
 import { useTranslation } from 'react-i18next';
@@ -56,9 +56,16 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     };
   }, [languageCode, toast, t]);
 
+  const handleStop = useCallback(() => {
+    cancelSpeech();
+    setIsPlaying(false);
+  }, []);
+
   const speakText = useCallback(async (slow = false) => {
     if (isPlaying || !audioSupported || !correctAnswer || disabled) return;
 
+    // Prevent overlapping playback
+    cancelSpeech();
     setIsPlaying(true);
 
     try {
@@ -129,7 +136,7 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
               {t('speech.listenAgain', 'Listen again')} ({playCount}x)
             </button>
           )}
-          
+
           <button
             onClick={() => speakText(true)}
             disabled={isPlaying || disabled}
@@ -138,6 +145,16 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
             <Turtle className="w-4 h-4" />
             {t('speech.slowPlayback', 'Slow')}
           </button>
+
+          {isPlaying && !disabled && (
+            <button
+              onClick={handleStop}
+              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors px-3 py-1.5 bg-muted/50 rounded-lg"
+            >
+              <Square className="w-4 h-4" />
+              {t('speech.stop', 'Stop')}
+            </button>
+          )}
         </div>
       </div>
 
