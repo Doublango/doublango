@@ -69,8 +69,8 @@ const pickBestVoice = (ttsLang: string): SpeechSynthesisVoice | undefined => {
  * Play audio via backend Google Translate TTS proxy (fallback)
  * This avoids browser/CORS blocks that break direct translate_tts playback.
  */
-const playGoogleTTS = async (text: string, lang: string): Promise<void> => {
-  await playGoogleTTSProxy(text, lang);
+const playGoogleTTS = async (text: string, lang: string, rate?: number): Promise<void> => {
+  await playGoogleTTSProxy(text, lang, rate);
 };
 
 
@@ -173,13 +173,13 @@ export const speak = async (
     const ok = await playWebSpeech(trimmed, ttsLang, opts);
     if (!ok) {
       // fallback
-      await playGoogleTTS(trimmed, ttsLang);
+      await playGoogleTTS(trimmed, ttsLang, opts.rate);
     }
     return;
   }
 
   // Default: use backend proxy first for predictable playback
-  await playGoogleTTS(trimmed, ttsLang);
+  await playGoogleTTS(trimmed, ttsLang, opts.rate);
 };
 
 export const cancelSpeech = () => {

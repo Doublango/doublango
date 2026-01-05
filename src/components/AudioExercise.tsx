@@ -62,26 +62,12 @@ const AudioExercise: React.FC<AudioExerciseProps> = ({
     setIsPlaying(true);
 
     try {
-      if (slow) {
-        // Speak word by word with pauses
-        const words = correctAnswer.split(/\s+/);
-        for (const word of words) {
-          if (!mountedRef.current) break;
-          await speak(word, languageCode, {
-            rate: 0.5,
-            engine: settings.ttsEngine,
-            voiceURI: settings.ttsVoiceURI,
-          });
-          // Small pause between words
-          await new Promise(resolve => setTimeout(resolve, 400));
-        }
-      } else {
-        await speak(correctAnswer, languageCode, {
-          rate: playCount === 0 ? 0.75 : 0.9,
-          engine: settings.ttsEngine,
-          voiceURI: settings.ttsVoiceURI,
-        });
-      }
+      const rate = slow ? 0.6 : (playCount === 0 ? 0.75 : 0.9);
+      await speak(correctAnswer, languageCode, {
+        rate,
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
+      });
 
       if (mountedRef.current) {
         setHasPlayed(true);
