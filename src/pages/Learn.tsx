@@ -3,13 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProgress } from '@/hooks/useUserProgress';
+import { useCefrProgress } from '@/hooks/useCefrProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
+import Confetti from '@/components/Confetti';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { LANGUAGES } from '@/lib/languages';
-import { Lock, Star, Check, ChevronRight, RotateCcw } from 'lucide-react';
+import { Lock, Star, Check, ChevronRight, RotateCcw, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { bumpLessonQuestionSetVersion, clearUsedQuestionBank, getLessonQuestionSetVersion, getQuestionSetVersion, makeGenerationId, setLessonQuestionSetVersion as setLessonQsetVersion, setQuestionSetVersion as setGlobalQsetVersion } from '@/lib/aiQuestionRegistry';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
@@ -70,9 +72,18 @@ const Learn: React.FC = () => {
   const [completedLessonIds, setCompletedLessonIds] = useState<Set<string>>(new Set());
   const [difficultyLevel, setDifficultyLevel] = useState<number>(() => readStoredDifficulty(appSettings.kidsMode));
   const [questionSetVersion, setQuestionSetVersion] = useState<number>(0);
+  const [showLevelComplete, setShowLevelComplete] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   const CEFR_LEVELS = appSettings.kidsMode ? CEFR_LEVELS_KIDS : CEFR_LEVELS_ADULT;
   const maxDifficultyIndex = CEFR_LEVELS.length - 1;
+  const currentCefr = (CEFR_LEVELS[Math.min(difficultyLevel, maxDifficultyIndex)]?.value || 'A1') as Database['public']['Enums']['cefr_level'];
+
+  // Hook for per-CEFR progress synced to account
+  const { progress: cefrProgress, resetProgress: resetCefrProgress, markCompleted: markCefrCompleted } = useCefrProgress(
+    activeCourse?.language_code,
+    currentCefr
+  );
 
   // Clamp difficulty when switching between modes
   useEffect(() => {
@@ -177,6 +188,20 @@ const Learn: React.FC = () => {
     [activeCourse?.language_code, appSettings.kidsMode, CEFR_LEVELS, maxDifficultyIndex, units],
   );
 
+  const handleContinueAtLevel = useCallback(async () => {
+    setShowLevelComplete(false);
+    setShowConfetti(false);
+    resetQuestionsForDifficulty(difficultyLevel);
+  }, [difficultyLevel, resetQuestionsForDifficulty]);
+
+  const handleProgressToNextLevel = useCallback(() => {
+    setShowLevelComplete(false);
+    setShowConfetti(false);
+    const nextLevel = Math.min(difficultyLevel + 1, maxDifficultyIndex);
+    setDifficultyLevel(nextLevel);
+    storeCurrentDifficulty(nextLevel, appSettings.kidsMode);
+  }, [difficultyLevel, maxDifficultyIndex, appSettings.kidsMode]);
+
   const language = LANGUAGES.find(l => l.code === activeCourse?.language_code);
 
   const startLesson = (lesson: Lesson, opts?: { lessonSetVersionOverride?: number; difficultyOverrideIndex?: number }) => {
@@ -225,6 +250,49 @@ const Learn: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <MonkeyMascot mood="thinking" size="lg" animate />
+      </div>
+    );
+  }
+
+  // Level Complete celebration modal
+  if (showLevelComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-primary/20 via-background to-background flex flex-col items-center justify-center p-6">
+        <Confetti trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
+        
+        <PartyPopper className="w-20 h-20 text-primary mb-4 animate-bounce" />
+        <MonkeyMascot mood="celebrating" size="xl" animate className="mb-6" />
+        
+        <h1 className="text-3xl font-bold mb-2 text-center">
+          🎉 {t('learn.levelComplete', 'Level Complete!')} 🎉
+        </h1>
+        <p className="text-xl font-semibold text-primary mb-2">
+          {CEFR_LEVELS[Math.min(difficultyLevel, maxDifficultyIndex)]?.emoji} {CEFR_LEVELS[Math.min(difficultyLevel, maxDifficultyIndex)]?.label}
+        </p>
+        <p className="text-muted-foreground text-center mb-8 max-w-sm">
+          {t('learn.levelCompleteDesc', 'Congratulations! You have completed all lessons at this difficulty level.')}
+        </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md">
+          <Button
+            variant="outline"
+            onClick={handleContinueAtLevel}
+            className="flex-1 gap-2"
+          >
+            <RotateCcw className="w-4 h-4" />
+            {t('learn.continueAtLevel', 'Stay at this level')}
+          </Button>
+          
+          {difficultyLevel < maxDifficultyIndex && (
+            <Button
+              onClick={handleProgressToNextLevel}
+              className="flex-1 gradient-primary text-primary-foreground gap-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+              {t('learn.nextLevel', 'Next level')} ({CEFR_LEVELS[difficultyLevel + 1]?.value})
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
