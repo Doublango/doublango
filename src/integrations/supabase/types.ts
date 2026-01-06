@@ -339,6 +339,45 @@ export type Database = {
           },
         ]
       }
+      user_cefr_progress: {
+        Row: {
+          cefr_level: Database["public"]["Enums"]["cefr_level"]
+          completed: boolean | null
+          completed_at: string | null
+          created_at: string | null
+          current_lesson: number | null
+          current_unit: number | null
+          id: string
+          language_code: Database["public"]["Enums"]["language_code"]
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          cefr_level: Database["public"]["Enums"]["cefr_level"]
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_lesson?: number | null
+          current_unit?: number | null
+          id?: string
+          language_code: Database["public"]["Enums"]["language_code"]
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          cefr_level?: Database["public"]["Enums"]["cefr_level"]
+          completed?: boolean | null
+          completed_at?: string | null
+          created_at?: string | null
+          current_lesson?: number | null
+          current_unit?: number | null
+          id?: string
+          language_code?: Database["public"]["Enums"]["language_code"]
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_courses: {
         Row: {
           current_lesson: number | null

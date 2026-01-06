@@ -10,7 +10,7 @@ import AvatarMascot from '@/components/AvatarMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
-import { Mic2, Volume2, ChevronRight, RotateCcw, Turtle, Globe, Loader2, Sparkles } from 'lucide-react';
+import { Mic2, Volume2, ChevronRight, RotateCcw, Turtle, Globe, Loader2, Sparkles, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, preloadVoices, cancelSpeech } from '@/lib/tts';
 import { LANGUAGE_CONTENT, getTTSLanguageCode } from '@/lib/languageContent';
@@ -325,6 +325,15 @@ const Talk: React.FC = () => {
     setIsListening(false);
   }, []);
 
+  // Strip punctuation from text before speaking (avoids "comma", "period" being read)
+  const cleanTextForTTS = useCallback((text: string): string => {
+    // Remove punctuation marks but keep apostrophes in contractions
+    return text
+      .replace(/[.,!?;:¿¡…—–\-()[\]{}""''«»]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }, []);
+
   const speakPhrase = useCallback(async (text: string, slow = false) => {
     if (isSpeaking || !text) return;
 
@@ -334,29 +343,25 @@ const Talk: React.FC = () => {
 
     setIsSpeaking(true);
     try {
-      if (slow) {
-        const words = text.split(/\s+/);
-        for (const word of words) {
-          await speak(word, languageCode, {
-            rate: 0.45,
-            engine: settings.ttsEngine,
-            voiceURI: settings.ttsVoiceURI,
-          });
-          await new Promise((resolve) => setTimeout(resolve, 200));
-        }
-      } else {
-        await speak(text, languageCode, {
-          rate: 0.7,
-          engine: settings.ttsEngine,
-          voiceURI: settings.ttsVoiceURI,
-        });
-      }
+      const cleanText = cleanTextForTTS(text);
+      // Slow mode: single call with reduced rate (0.65), not word-by-word
+      const rate = slow ? 0.65 : 0.85;
+      await speak(cleanText, languageCode, {
+        rate,
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
+      });
     } catch (error) {
       console.error('Speech error:', error);
     } finally {
       setIsSpeaking(false);
     }
-  }, [languageCode, isSpeaking, settings.ttsEngine, settings.ttsVoiceURI, stopListening]);
+  }, [languageCode, isSpeaking, settings.ttsEngine, settings.ttsVoiceURI, stopListening, cleanTextForTTS]);
+
+  const handleStopAudio = useCallback(() => {
+    cancelSpeech();
+    setIsSpeaking(false);
+  }, []);
 
   const startListening = useCallback(async () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -595,7 +600,7 @@ const Talk: React.FC = () => {
               <p className="text-2xl font-bold mb-2">{phrase.translation}</p>
               <p className="text-sm text-muted-foreground mb-4">({phrase.english})</p>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Button
                   variant="outline"
                   className="gap-2"
@@ -615,6 +620,17 @@ const Talk: React.FC = () => {
                 >
                   <Turtle className="w-5 h-5" />
                 </Button>
+                {isSpeaking && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleStopAudio}
+                    title={t('speech.stop', 'Stop')}
+                    className="text-muted-foreground hover:text-destructive"
+                  >
+                    <Square className="w-5 h-5" />
+                  </Button>
+                )}
               </div>
             </div>
           )}
