@@ -23,6 +23,7 @@ import HelpCentre from "./pages/HelpCentre";
 import About from "./pages/About";
 import PracticeReminders from "./pages/PracticeReminders";
 import Games from "./pages/Games";
+import FocusMode from "./pages/FocusMode";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,6 +56,7 @@ const App = () => (
             <Route path="/help" element={<HelpCentre />} />
             <Route path="/about" element={<About />} />
             <Route path="/reminders" element={<PracticeReminders />} />
+            <Route path="/focus" element={<FocusMode />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
