@@ -12,7 +12,9 @@ import AvatarMascot from '@/components/AvatarMascot';
 import LanguageSelector from '@/components/LanguageSelector';
 import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
+import FocusModeWidget from '@/components/FocusModeWidget';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
+import { useFocusMode } from '@/contexts/FocusModeContext';
 import { LANGUAGES } from '@/lib/languages';
 import { Play, Target, Flame, Crown, Sparkles, RotateCcw, Zap, Gamepad2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -23,8 +25,19 @@ const Home: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
   const { profile, progress, activeCourse, loading: progressLoading } = useUserProgress();
   const { settings } = useAppSettings();
+  const { recordXpEarned, session: focusSession } = useFocusMode();
   const [nextLessonId, setNextLessonId] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [prevTodayXp, setPrevTodayXp] = useState<number | null>(null);
+
+  // Track XP changes for Focus Mode
+  useEffect(() => {
+    const currentXp = progress?.today_xp || 0;
+    if (prevTodayXp !== null && currentXp > prevTodayXp && focusSession.isActive) {
+      recordXpEarned(currentXp - prevTodayXp);
+    }
+    setPrevTodayXp(currentXp);
+  }, [progress?.today_xp, prevTodayXp, focusSession.isActive, recordXpEarned]);
 
   // Get current language info
   const currentLanguage = LANGUAGES.find(l => l.code === activeCourse?.language_code);
@@ -206,6 +219,9 @@ const Home: React.FC = () => {
             </Button>
           </div>
         </div>
+
+        {/* Focus Mode Widget */}
+        <FocusModeWidget />
 
         {/* Review Section */}
         <div className="bg-card rounded-3xl p-6 shadow-md">

@@ -4,14 +4,30 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAppSettings, AvatarType } from '@/contexts/AppSettingsContext';
+import { useFocusMode } from '@/contexts/FocusModeContext';
+import { requestNotificationPermission } from '@/lib/notifications';
 import AvatarMascot from '@/components/AvatarMascot';
 import AvatarSelector from '@/components/AvatarSelector';
 import { LANGUAGES, DAILY_GOALS, MOTIVATIONS } from '@/lib/languages';
-import { Check, ChevronRight, Bell, BellOff, Sparkles } from 'lucide-react';
+import { Check, ChevronRight, Bell, BellOff, Sparkles, Target, Coffee } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Database } from '@/integrations/supabase/types';
 
 type LanguageCode = Database['public']['Enums']['language_code'];
+
+const XP_GOALS = [25, 50, 75, 100];
+const BREAK_DURATIONS = [5, 10, 15, 20];
+
+const DISTRACTING_APPS = [
+  { id: 'youtube', name: 'YouTube', icon: '📺' },
+  { id: 'instagram', name: 'Instagram', icon: '📷' },
+  { id: 'tiktok', name: 'TikTok', icon: '🎵' },
+  { id: 'twitter', name: 'X / Twitter', icon: '🐦' },
+  { id: 'facebook', name: 'Facebook', icon: '👤' },
+  { id: 'reddit', name: 'Reddit', icon: '🔴' },
+  { id: 'snapchat', name: 'Snapchat', icon: '👻' },
+  { id: 'games', name: 'Games', icon: '🎮' },
+];
 
 const Onboarding: React.FC = () => {
   const [step, setStep] = useState(1);
@@ -19,10 +35,23 @@ const Onboarding: React.FC = () => {
   const [dailyGoal, setDailyGoal] = useState(20);
   const [motivation, setMotivation] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [focusEnabled, setFocusEnabled] = useState(false);
+  const [focusXpGoal, setFocusXpGoal] = useState(50);
+  const [focusBreakDuration, setFocusBreakDuration] = useState(10);
+  const [focusApps, setFocusApps] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { settings, setAvatar } = useAppSettings();
+  const { updateSettings: updateFocusSettings } = useFocusMode();
+
+  const toggleFocusApp = (appId: string) => {
+    setFocusApps(prev => 
+      prev.includes(appId) 
+        ? prev.filter(id => id !== appId) 
+        : [...prev, appId]
+    );
+  };
 
   const requestNotifications = async () => {
     if ('Notification' in window) {
@@ -32,17 +61,39 @@ const Onboarding: React.FC = () => {
         toast({ title: '🍌 Notifications enabled!', description: "I'll remind you to practice!" });
       }
     }
-    setStep(6);
+    setStep(6); // Go to Focus Mode step
   };
 
   const skipNotifications = () => {
-    setStep(6);
+    setStep(6); // Go to Focus Mode step
+  };
+
+  const enableFocusMode = async () => {
+    await requestNotificationPermission();
+    setFocusEnabled(true);
+    setStep(7); // Go to placement test
+  };
+
+  const skipFocusMode = () => {
+    setStep(7); // Go to placement test
+  };
+
+  const saveFocusSettings = () => {
+    if (focusEnabled) {
+      updateFocusSettings({
+        enabled: true,
+        xpGoal: focusXpGoal,
+        breakDuration: focusBreakDuration,
+        distractingApps: focusApps,
+      });
+    }
   };
 
   const handleStartPlacementTest = async () => {
     if (!selectedLanguage) return;
     setLoading(true);
     try {
+      saveFocusSettings();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -77,6 +128,7 @@ const Onboarding: React.FC = () => {
     if (!selectedLanguage) return;
     setLoading(true);
     try {
+      saveFocusSettings();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -111,7 +163,7 @@ const Onboarding: React.FC = () => {
     }
   };
 
-  const totalSteps = 6;
+  const totalSteps = 7;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col p-6">
@@ -251,8 +303,109 @@ const Onboarding: React.FC = () => {
           </div>
         )}
 
-        {/* Step 6: Placement Test Choice */}
+        {/* Step 6: Focus Mode */}
         {step === 6 && (
+          <div className="animate-fade-in space-y-6 flex-1 flex flex-col">
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto mb-4 rounded-full gradient-banana flex items-center justify-center">
+                <Target className="w-10 h-10 text-banana-foreground" />
+              </div>
+              <h1 className="text-2xl font-bold mb-2">Focus Mode</h1>
+              <p className="text-muted-foreground">
+                Stay focused! Earn XP before taking breaks from distracting apps. 🎯
+              </p>
+            </div>
+
+            {/* XP Goal */}
+            <div className="bg-card rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Target className="w-5 h-5 text-primary" />
+                <span className="font-semibold">XP Goal per session</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {XP_GOALS.map((xp) => (
+                  <button
+                    key={xp}
+                    onClick={() => setFocusXpGoal(xp)}
+                    className={cn(
+                      'px-4 py-2 rounded-xl font-bold transition-all',
+                      focusXpGoal === xp
+                        ? 'gradient-banana text-banana-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    {xp} XP
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Break Duration */}
+            <div className="bg-card rounded-2xl p-4 shadow-sm">
+              <div className="flex items-center gap-2 mb-3">
+                <Coffee className="w-5 h-5 text-success" />
+                <span className="font-semibold">Break duration</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {BREAK_DURATIONS.map((mins) => (
+                  <button
+                    key={mins}
+                    onClick={() => setFocusBreakDuration(mins)}
+                    className={cn(
+                      'px-4 py-2 rounded-xl font-bold transition-all',
+                      focusBreakDuration === mins
+                        ? 'gradient-banana text-banana-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    {mins} min
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Distracting Apps */}
+            <div className="bg-card rounded-2xl p-4 shadow-sm">
+              <p className="font-semibold mb-3">Apps to limit (optional)</p>
+              <div className="grid grid-cols-4 gap-2">
+                {DISTRACTING_APPS.map((app) => (
+                  <button
+                    key={app.id}
+                    onClick={() => toggleFocusApp(app.id)}
+                    className={cn(
+                      'p-2 rounded-xl text-center transition-all',
+                      focusApps.includes(app.id)
+                        ? 'bg-primary/10 border-2 border-primary'
+                        : 'bg-muted hover:bg-muted/80'
+                    )}
+                  >
+                    <span className="text-xl">{app.icon}</span>
+                    <p className="text-[10px] mt-1 truncate">{app.name}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <Button
+                onClick={enableFocusMode}
+                className="w-full h-14 text-lg font-bold rounded-2xl gradient-banana text-banana-foreground"
+              >
+                <Target className="mr-2 w-5 h-5" /> Enable Focus Mode
+              </Button>
+              <Button
+                onClick={skipFocusMode}
+                variant="ghost"
+                className="w-full h-14 text-lg font-medium rounded-2xl"
+              >
+                Skip for now
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Step 7: Placement Test Choice */}
+        {step === 7 && (
           <div className="animate-fade-in space-y-6 flex-1 flex flex-col justify-center">
             <div className="text-center">
               <AvatarMascot mood="thinking" size="xl" className="mx-auto mb-6" animate />

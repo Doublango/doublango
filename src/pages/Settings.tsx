@@ -14,7 +14,7 @@ import { Switch } from '@/components/ui/switch';
 import { 
   ArrowLeft, User, Bell, Globe, Crown, LogOut, 
   ChevronRight, Shield, HelpCircle, Info, Volume2, Check, 
-  Moon, Sun, Baby, Sparkles, Mic
+  Moon, Sun, Baby, Sparkles, Mic, Target
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -105,6 +105,7 @@ const Settings: React.FC = () => {
         { id: 'darkMode', label: settings.darkMode ? 'Dark Mode' : 'Light Mode', icon: settings.darkMode ? Moon : Sun, toggle: true, value: settings.darkMode, onChange: handleDarkModeToggle },
         { id: 'kidsMode', label: 'Kids Mode', icon: Baby, toggle: true, value: settings.kidsMode, onChange: handleKidsModeToggle, badge: settings.kidsMode ? '👶' : undefined },
         { id: 'voice', label: t('settings.voiceSettings', 'Voice Settings'), icon: Mic, action: () => setShowVoiceModal(true), value: settings.ttsEngine === 'proxy' ? 'Cloud' : 'Browser' },
+        { id: 'focus', label: 'Focus Mode', icon: Target, action: () => navigate('/focus') },
         { id: 'notifications', label: t('settings.practiceReminders', 'Practice Reminders'), icon: Bell, toggle: true, value: notifications, onChange: handleNotificationToggle },
         { id: 'sounds', label: t('settings.soundEffects', 'Sound Effects'), icon: Volume2, toggle: true, value: soundEffects, onChange: setSoundEffects },
         { id: 'language', label: t('settings.appLanguage', 'App Language'), icon: Globe, action: () => setShowLanguageModal(true), value: currentUILanguage.nativeName },
