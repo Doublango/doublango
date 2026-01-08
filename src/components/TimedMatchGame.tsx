@@ -4,7 +4,8 @@ import { Progress } from '@/components/ui/progress';
 import { Timer, Zap, Trophy, RotateCcw, Volume2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak } from '@/lib/tts';
-
+import { playSound, playKidsSound } from '@/lib/gameSounds';
+import { useAppSettings } from '@/contexts/AppSettingsContext';
 interface MatchPair {
   left: string;
   right: string;
@@ -25,6 +26,8 @@ const TimedMatchGame: React.FC<TimedMatchGameProps> = ({
   timeLimit = 30,
   disabled = false,
 }) => {
+  const { settings } = useAppSettings();
+  const sound = settings.kidsMode ? playKidsSound : playSound;
   const [timeRemaining, setTimeRemaining] = useState(timeLimit);
   const [isStarted, setIsStarted] = useState(false);
   const [matchedPairs, setMatchedPairs] = useState<Set<string>>(new Set());
@@ -116,9 +119,18 @@ const TimedMatchGame: React.FC<TimedMatchGameProps> = ({
         const streakBonus = Math.min(streak, 4);
         const pointsEarned = 10 + streakBonus * 5;
         setScore((prev) => prev + pointsEarned);
-        setStreak((prev) => prev + 1);
+        const newStreak = streak + 1;
+        setStreak(newStreak);
+        
+        // Play sounds
+        if (newStreak >= 3) {
+          sound('streak');
+        } else {
+          sound('match');
+        }
       }
     } else {
+      sound('incorrect');
       setFlashIncorrect(item);
       setTimeout(() => setFlashIncorrect(null), 300);
       setMistakes((prev) => prev + 1);
@@ -129,6 +141,7 @@ const TimedMatchGame: React.FC<TimedMatchGameProps> = ({
   }, [disabled, matchedPairs, isStarted, selectedItem, pairs, speakWord, streak]);
 
   const startGame = () => {
+    sound('gameStart');
     setIsStarted(true);
     setTimeRemaining(timeLimit);
     setMatchedPairs(new Set());
