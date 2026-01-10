@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { Volume2, Star, Sparkles, PartyPopper } from 'lucide-react';
+import { Volume2, Star, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak } from '@/lib/tts';
 import { playKidsSound } from '@/lib/gameSounds';
@@ -23,6 +24,7 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
   languageCode,
   onComplete,
 }) => {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [options, setOptions] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -93,7 +95,7 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
     return (
       <div className="bg-card rounded-3xl p-8 text-center space-y-6">
         <div className="text-6xl animate-bounce">🎉</div>
-        <h3 className="text-2xl font-bold text-primary">Great Job!</h3>
+        <h3 className="text-2xl font-bold text-primary">{t('games.greatJob')}</h3>
         <div className="flex items-center justify-center gap-1">
           {[...Array(5)].map((_, i) => (
             <Star
@@ -107,8 +109,8 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
           ))}
         </div>
         <p className="text-lg">
-          You got <span className="font-bold text-success">{perfectCount}</span> out of{' '}
-          <span className="font-bold">{animals.length}</span> correct!
+          {t('common.correct')}: <span className="font-bold text-success">{perfectCount}</span> {t('common.of')}{' '}
+          <span className="font-bold">{animals.length}</span>
         </p>
         <div className="text-4xl">
           {perfectCount === animals.length ? '🏆' : perfectCount > animals.length / 2 ? '⭐' : '💪'}
@@ -154,13 +156,13 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
           className="inline-flex items-center gap-2 text-primary hover:underline"
         >
           <Volume2 className="w-5 h-5" />
-          <span className="text-sm">Listen</span>
+          <span className="text-sm">{t('common.listen')}</span>
         </button>
       </div>
 
       {/* Question */}
       <p className="text-center text-lg font-medium">
-        What is <span className="text-primary">"{currentAnimal.english}"</span> in the new language?
+        {t('games.whatIs')} <span className="text-primary">"{currentAnimal.english}"</span>?
       </p>
 
       {/* Answer Options */}
@@ -190,7 +192,7 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
           className="w-full h-14 text-lg gradient-primary text-primary-foreground animate-fade-in"
         >
           {isCorrect ? '🎉 ' : ''}
-          {currentIndex < animals.length - 1 ? 'Next Animal!' : 'See Results!'}
+          {currentIndex < animals.length - 1 ? t('common.next') : t('common.finish')}
         </Button>
       )}
 
@@ -200,7 +202,7 @@ const KidsAnimalGame: React.FC<KidsAnimalGameProps> = ({
           "text-center text-lg font-bold animate-fade-in",
           isCorrect ? "text-success" : "text-muted-foreground"
         )}>
-          {isCorrect ? 'Amazing! 🌟' : `It's "${currentAnimal.translation}"`}
+          {isCorrect ? `${t('games.perfect')} 🌟` : `${t('common.correct')}: "${currentAnimal.translation}"`}
         </p>
       )}
     </div>
