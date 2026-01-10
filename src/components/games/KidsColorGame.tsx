@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Volume2, Star, Sparkles, Heart } from 'lucide-react';
@@ -23,6 +24,7 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
   languageCode,
   onComplete,
 }) => {
+  const { t } = useTranslation();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [colorOptions, setColorOptions] = useState<ColorWord[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -89,7 +91,7 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
     return (
       <div className="bg-card rounded-3xl p-8 text-center space-y-6">
         <div className="text-6xl animate-bounce">🎨</div>
-        <h3 className="text-2xl font-bold text-primary">Wonderful!</h3>
+        <h3 className="text-2xl font-bold text-primary">{t('games.greatJob')}</h3>
         <div className="flex items-center justify-center gap-2">
           {[...Array(3)].map((_, i) => (
             <Heart
@@ -105,7 +107,9 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
           <Star className="w-8 h-8 text-xp fill-xp" />
           <span className="text-3xl font-bold">{score}</span>
         </div>
-        <p className="text-lg">You learned {colors.length} colors! 🌈</p>
+        <p className="text-lg">
+          {t('games.learnedColors', { count: colors.length })} 🌈
+        </p>
       </div>
     );
   }
@@ -141,7 +145,7 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
           <Sparkles className="absolute top-4 right-4 w-8 h-8 text-xp animate-ping" />
         )}
         
-        <p className="text-sm text-muted-foreground mb-2">Find the color:</p>
+        <p className="text-sm text-muted-foreground mb-2">{t('games.findColor')}</p>
         <p className="text-4xl font-bold mb-4">{currentColor.translation}</p>
         
         <button
@@ -149,7 +153,7 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 hover:bg-primary/20 transition-colors"
         >
           <Volume2 className="w-5 h-5 text-primary" />
-          <span className="text-sm font-medium">Listen</span>
+          <span className="text-sm font-medium">{t('common.listen')}</span>
         </button>
       </div>
 
@@ -183,7 +187,7 @@ const KidsColorGame: React.FC<KidsColorGameProps> = ({
           className="w-full h-14 text-xl gradient-primary text-primary-foreground animate-fade-in"
         >
           {isCorrect ? '🎉 ' : ''}
-          {currentIndex < colors.length - 1 ? 'Next Color!' : 'Finish!'}
+          {currentIndex < colors.length - 1 ? t('common.next') : t('common.finish')}
         </Button>
       )}
 

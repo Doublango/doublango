@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useFocusMode } from '@/contexts/FocusModeContext';
 import { Target, Coffee, Zap, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -12,6 +13,7 @@ interface FocusModeWidgetProps {
 
 const FocusModeWidget: React.FC<FocusModeWidgetProps> = ({ className, compact }) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const { 
     settings, 
     session, 
@@ -42,8 +44,8 @@ const FocusModeWidget: React.FC<FocusModeWidgetProps> = ({ className, compact })
           <Target className="w-5 h-5 text-muted-foreground" />
         </div>
         <div className="flex-1 text-left">
-          <p className="font-semibold text-sm">Focus Mode</p>
-          <p className="text-xs text-muted-foreground">Tap to set up</p>
+          <p className="font-semibold text-sm">{t('focus.title')}</p>
+          <p className="text-xs text-muted-foreground">{t('focus.tapToSetup')}</p>
         </div>
         <ChevronRight className="w-5 h-5 text-muted-foreground" />
       </button>
@@ -63,13 +65,13 @@ const FocusModeWidget: React.FC<FocusModeWidgetProps> = ({ className, compact })
               <Coffee className="w-5 h-5 text-success" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-sm">Break Time</p>
+              <p className="font-semibold text-sm">{t('focus.breakTime')}</p>
               <p className="text-2xl font-mono font-bold text-success">
                 {formatTime(breakTimeRemaining)}
               </p>
             </div>
             <Button size="sm" onClick={() => navigate('/focus')}>
-              View
+              {t('common.view')}
             </Button>
           </div>
         </div>
@@ -87,12 +89,12 @@ const FocusModeWidget: React.FC<FocusModeWidgetProps> = ({ className, compact })
           </div>
           <div className="flex-1">
             <p className="font-semibold text-sm">
-              {isGoalReached ? '🎉 Goal Reached!' : 'Focus Session'}
+              {isGoalReached ? `🎉 ${t('focus.goalReached')}` : t('focus.focusSession')}
             </p>
             <p className="text-xs text-muted-foreground">
               {isGoalReached 
-                ? 'Take a break or keep learning!' 
-                : `${xpRemaining} XP to unlock break`}
+                ? t('focus.takeBreakOrContinue') 
+                : t('focus.xpToUnlockBreak', { xp: xpRemaining })}
             </p>
           </div>
           <Button size="sm" variant="ghost" onClick={() => navigate('/focus')}>
@@ -132,8 +134,8 @@ const FocusModeWidget: React.FC<FocusModeWidgetProps> = ({ className, compact })
         <Zap className="w-5 h-5 text-banana-foreground" />
       </div>
       <div className="flex-1 text-left">
-        <p className="font-semibold text-sm">Start Focus Session</p>
-        <p className="text-xs text-muted-foreground">Earn {settings.xpGoal} XP to unlock break</p>
+        <p className="font-semibold text-sm">{t('focus.startSession')}</p>
+        <p className="text-xs text-muted-foreground">{t('focus.earnXpToUnlock', { xp: settings.xpGoal })}</p>
       </div>
       <ChevronRight className="w-5 h-5 text-primary" />
     </button>

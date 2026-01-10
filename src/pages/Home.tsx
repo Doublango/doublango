@@ -228,10 +228,10 @@ const Home: React.FC = () => {
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-bold flex items-center gap-2">
               <RotateCcw className="w-5 h-5 text-primary" />
-              <span>Quick Review</span>
+              <span>{t('home.quickReview')}</span>
             </h3>
             <Button variant="ghost" size="sm" onClick={() => navigate('/review')}>
-              See all
+              {t('home.seeAll')}
             </Button>
           </div>
           <div className="grid grid-cols-3 gap-3">
@@ -240,24 +240,24 @@ const Home: React.FC = () => {
               className="p-4 bg-primary/10 hover:bg-primary/20 rounded-xl text-left transition-colors"
             >
               <Target className="w-6 h-6 text-primary mb-2" />
-              <p className="font-semibold text-sm">Practice</p>
-              <p className="text-xs text-muted-foreground">Review words</p>
+              <p className="font-semibold text-sm">{t('home.practice')}</p>
+              <p className="text-xs text-muted-foreground">{t('home.reviewWords')}</p>
             </button>
             <button
               onClick={() => navigate('/games')}
               className="p-4 bg-success/10 hover:bg-success/20 rounded-xl text-left transition-colors"
             >
               <Gamepad2 className="w-6 h-6 text-success mb-2" />
-              <p className="font-semibold text-sm">Games</p>
-              <p className="text-xs text-muted-foreground">Fun practice</p>
+              <p className="font-semibold text-sm">{t('nav.games')}</p>
+              <p className="text-xs text-muted-foreground">{t('home.funPractice')}</p>
             </button>
             <button
               onClick={() => navigate('/timed-challenge')}
               className="p-4 bg-xp/10 hover:bg-xp/20 rounded-xl text-left transition-colors"
             >
               <Zap className="w-6 h-6 text-xp mb-2" />
-              <p className="font-semibold text-sm">Speed</p>
-              <p className="text-xs text-muted-foreground">60s challenge</p>
+              <p className="font-semibold text-sm">{t('home.speed')}</p>
+              <p className="text-xs text-muted-foreground">{t('home.speedChallenge')}</p>
             </button>
           </div>
         </div>
@@ -271,25 +271,25 @@ const Home: React.FC = () => {
           <div className="space-y-3">
             {[
               { 
-                title: 'First Lesson', 
-                desc: 'Complete a lesson today', 
+                title: t('home.quests.firstLesson'), 
+                desc: t('home.quests.firstLessonDesc'), 
                 progress: todayXp > 0 ? 1 : 0, 
                 target: 1,
                 reward: '+5 XP'
               },
               { 
-                title: 'XP Hunter', 
-                desc: 'Earn 50 XP today', 
+                title: t('home.quests.xpHunter'), 
+                desc: t('home.quests.xpHunterDesc'), 
                 progress: Math.min(todayXp, 50), 
                 target: 50,
                 reward: '+10 XP'
               },
               { 
-                title: 'Perfect Run', 
-                desc: 'Complete without mistakes', 
+                title: t('home.quests.perfectRun'), 
+                desc: t('home.quests.perfectRunDesc'), 
                 progress: 0, 
                 target: 1,
-                reward: '🍌 Banana Bonus'
+                reward: t('home.quests.bananaBonus')
               }
             ].map((quest, i) => (
               <div key={i} className="flex items-center gap-3 p-3 bg-muted/50 rounded-xl">

@@ -9,8 +9,14 @@ import BottomNavigation from '@/components/BottomNavigation';
 import AvatarMascot from '@/components/AvatarMascot';
 import TimedMatchGame from '@/components/TimedMatchGame';
 import PronunciationChallenge from '@/components/PronunciationChallenge';
+import FlashCardGame from '@/components/games/FlashCardGame';
+import WordScrambleGame from '@/components/games/WordScrambleGame';
+import MemoryGame from '@/components/games/MemoryGame';
+import KidsAnimalGame from '@/components/games/KidsAnimalGame';
+import KidsColorGame from '@/components/games/KidsColorGame';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
+import { Switch } from '@/components/ui/switch';
 import { 
   Gamepad2, 
   Zap, 
@@ -20,7 +26,13 @@ import {
   Globe,
   Star,
   Timer,
-  Target
+  Target,
+  Layers,
+  Shuffle,
+  Brain,
+  Cat,
+  Palette,
+  Baby
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { LANGUAGES } from '@/lib/languages';
@@ -123,6 +135,184 @@ const PRONUNCIATION_PHRASES_BY_LEVEL: Record<string, Array<{ text: string; trans
   ],
 };
 
+const FLASHCARD_WORDS_BY_LEVEL: Record<string, Array<{ front: string; back: string; hint?: string }>> = {
+  A1: [
+    { front: 'Hello', back: 'Hola', hint: 'A greeting' },
+    { front: 'Goodbye', back: 'Adiós', hint: 'Farewell' },
+    { front: 'Water', back: 'Agua', hint: 'You drink this' },
+    { front: 'Food', back: 'Comida', hint: 'You eat this' },
+    { front: 'House', back: 'Casa', hint: 'Where you live' },
+    { front: 'Friend', back: 'Amigo', hint: 'Someone close to you' },
+  ],
+  A2: [
+    { front: 'To travel', back: 'Viajar', hint: 'Going places' },
+    { front: 'To eat', back: 'Comer', hint: 'Consuming food' },
+    { front: 'To sleep', back: 'Dormir', hint: 'At night' },
+    { front: 'To work', back: 'Trabajar', hint: 'At an office' },
+    { front: 'To study', back: 'Estudiar', hint: 'Learning' },
+    { front: 'To play', back: 'Jugar', hint: 'Having fun' },
+  ],
+  B1: [
+    { front: 'Achievement', back: 'Logro', hint: 'Something accomplished' },
+    { front: 'Challenge', back: 'Desafío', hint: 'Something difficult' },
+    { front: 'Development', back: 'Desarrollo', hint: 'Growth' },
+    { front: 'Environment', back: 'Medio ambiente', hint: 'Nature around us' },
+    { front: 'Experience', back: 'Experiencia', hint: 'Life knowledge' },
+    { front: 'Opportunity', back: 'Oportunidad', hint: 'A chance' },
+  ],
+  B2: [
+    { front: 'Accountability', back: 'Responsabilidad', hint: 'Being answerable' },
+    { front: 'Breakthrough', back: 'Avance', hint: 'Important discovery' },
+    { front: 'Commitment', back: 'Compromiso', hint: 'Dedication' },
+    { front: 'Determination', back: 'Determinación', hint: 'Strong will' },
+    { front: 'Efficiency', back: 'Eficiencia', hint: 'Doing things well' },
+    { front: 'Innovation', back: 'Innovación', hint: 'New ideas' },
+  ],
+  C1: [
+    { front: 'Ambiguity', back: 'Ambigüedad', hint: 'Unclear meaning' },
+    { front: 'Bureaucracy', back: 'Burocracia', hint: 'Administrative system' },
+    { front: 'Condescension', back: 'Condescendencia', hint: 'Looking down on' },
+    { front: 'Dichotomy', back: 'Dicotomía', hint: 'Two opposites' },
+    { front: 'Ephemeral', back: 'Efímero', hint: 'Short-lived' },
+    { front: 'Fallacy', back: 'Falacia', hint: 'False reasoning' },
+  ],
+  C2: [
+    { front: 'Grandiloquent', back: 'Grandilocuente', hint: 'Pompous speech' },
+    { front: 'Ineffable', back: 'Inefable', hint: 'Beyond words' },
+    { front: 'Juxtaposition', back: 'Yuxtaposición', hint: 'Side by side' },
+    { front: 'Kafkaesque', back: 'Kafkiano', hint: 'Surreal complexity' },
+    { front: 'Loquacious', back: 'Locuaz', hint: 'Very talkative' },
+    { front: 'Magnanimous', back: 'Magnánimo', hint: 'Generous spirit' },
+  ],
+};
+
+const SCRAMBLE_WORDS_BY_LEVEL: Record<string, Array<{ word: string; translation: string }>> = {
+  A1: [
+    { word: 'HOLA', translation: 'Hello' },
+    { word: 'AGUA', translation: 'Water' },
+    { word: 'CASA', translation: 'House' },
+    { word: 'GATO', translation: 'Cat' },
+    { word: 'PERRO', translation: 'Dog' },
+    { word: 'LIBRO', translation: 'Book' },
+  ],
+  A2: [
+    { word: 'AMIGO', translation: 'Friend' },
+    { word: 'COMIDA', translation: 'Food' },
+    { word: 'TIEMPO', translation: 'Time/Weather' },
+    { word: 'CIUDAD', translation: 'City' },
+    { word: 'FAMILIA', translation: 'Family' },
+    { word: 'TRABAJO', translation: 'Work' },
+  ],
+  B1: [
+    { word: 'PROBLEMA', translation: 'Problem' },
+    { word: 'GOBIERNO', translation: 'Government' },
+    { word: 'HISTORIA', translation: 'History' },
+    { word: 'PROGRAMA', translation: 'Program' },
+    { word: 'SERVICIO', translation: 'Service' },
+    { word: 'PROYECTO', translation: 'Project' },
+  ],
+  B2: [
+    { word: 'DESARROLLO', translation: 'Development' },
+    { word: 'EXPERIENCIA', translation: 'Experience' },
+    { word: 'INFORMACION', translation: 'Information' },
+    { word: 'TECNOLOGIA', translation: 'Technology' },
+    { word: 'SEGURIDAD', translation: 'Security' },
+    { word: 'INVESTIGACION', translation: 'Research' },
+  ],
+  C1: [
+    { word: 'RESPONSABILIDAD', translation: 'Responsibility' },
+    { word: 'CIRCUNSTANCIA', translation: 'Circumstance' },
+    { word: 'ADMINISTRACION', translation: 'Administration' },
+    { word: 'RECONOCIMIENTO', translation: 'Recognition' },
+    { word: 'CARACTERISTICA', translation: 'Characteristic' },
+    { word: 'REPRESENTACION', translation: 'Representation' },
+  ],
+  C2: [
+    { word: 'INCONMENSURABLE', translation: 'Immeasurable' },
+    { word: 'IMPRESCINDIBLE', translation: 'Essential' },
+    { word: 'DESAFORTUNADAMENTE', translation: 'Unfortunately' },
+    { word: 'SIMULTANEAMENTE', translation: 'Simultaneously' },
+    { word: 'EXTRAORDINARIAMENTE', translation: 'Extraordinarily' },
+    { word: 'INCOMPREHENSIBLE', translation: 'Incomprehensible' },
+  ],
+};
+
+const MEMORY_PAIRS_BY_LEVEL: Record<string, Array<{ word: string; translation: string }>> = {
+  A1: [
+    { word: 'Hola', translation: 'Hello' },
+    { word: 'Adiós', translation: 'Goodbye' },
+    { word: 'Gracias', translation: 'Thank you' },
+    { word: 'Sí', translation: 'Yes' },
+    { word: 'No', translation: 'No' },
+    { word: 'Amigo', translation: 'Friend' },
+  ],
+  A2: [
+    { word: 'Tiempo', translation: 'Time' },
+    { word: 'Dinero', translation: 'Money' },
+    { word: 'Trabajo', translation: 'Work' },
+    { word: 'Escuela', translation: 'School' },
+    { word: 'Comida', translation: 'Food' },
+    { word: 'Familia', translation: 'Family' },
+  ],
+  B1: [
+    { word: 'Desarrollo', translation: 'Development' },
+    { word: 'Gobierno', translation: 'Government' },
+    { word: 'Sociedad', translation: 'Society' },
+    { word: 'Problema', translation: 'Problem' },
+    { word: 'Cultura', translation: 'Culture' },
+    { word: 'Historia', translation: 'History' },
+  ],
+  B2: [
+    { word: 'Experiencia', translation: 'Experience' },
+    { word: 'Oportunidad', translation: 'Opportunity' },
+    { word: 'Responsabilidad', translation: 'Responsibility' },
+    { word: 'Comunicación', translation: 'Communication' },
+    { word: 'Investigación', translation: 'Research' },
+    { word: 'Tecnología', translation: 'Technology' },
+  ],
+  C1: [
+    { word: 'Trascendencia', translation: 'Significance' },
+    { word: 'Complejidad', translation: 'Complexity' },
+    { word: 'Sostenibilidad', translation: 'Sustainability' },
+    { word: 'Implementación', translation: 'Implementation' },
+    { word: 'Infraestructura', translation: 'Infrastructure' },
+    { word: 'Interdependencia', translation: 'Interdependence' },
+  ],
+  C2: [
+    { word: 'Idiosincrasia', translation: 'Idiosyncrasy' },
+    { word: 'Epistemología', translation: 'Epistemology' },
+    { word: 'Inconmensurable', translation: 'Incommensurable' },
+    { word: 'Introspección', translation: 'Introspection' },
+    { word: 'Yuxtaposición', translation: 'Juxtaposition' },
+    { word: 'Serendipidad', translation: 'Serendipity' },
+  ],
+};
+
+// Kids game content
+const KIDS_ANIMALS = [
+  { emoji: '🐶', english: 'Dog', translation: 'Perro' },
+  { emoji: '🐱', english: 'Cat', translation: 'Gato' },
+  { emoji: '🐭', english: 'Mouse', translation: 'Ratón' },
+  { emoji: '🐰', english: 'Rabbit', translation: 'Conejo' },
+  { emoji: '🦊', english: 'Fox', translation: 'Zorro' },
+  { emoji: '🐻', english: 'Bear', translation: 'Oso' },
+  { emoji: '🐷', english: 'Pig', translation: 'Cerdo' },
+  { emoji: '🐸', english: 'Frog', translation: 'Rana' },
+  { emoji: '🐵', english: 'Monkey', translation: 'Mono' },
+  { emoji: '🦁', english: 'Lion', translation: 'León' },
+];
+
+const KIDS_COLORS = [
+  { color: '#FF0000', english: 'Red', translation: 'Rojo' },
+  { color: '#0000FF', english: 'Blue', translation: 'Azul' },
+  { color: '#00FF00', english: 'Green', translation: 'Verde' },
+  { color: '#FFFF00', english: 'Yellow', translation: 'Amarillo' },
+  { color: '#FFA500', english: 'Orange', translation: 'Naranja' },
+  { color: '#800080', english: 'Purple', translation: 'Morado' },
+  { color: '#FFC0CB', english: 'Pink', translation: 'Rosa' },
+  { color: '#000000', english: 'Black', translation: 'Negro' },
+];
+
 const CEFR_LEVELS = [
   { value: 'A1', label: 'Beginner', emoji: '🌱' },
   { value: 'A2', label: 'Elementary', emoji: '📗' },
@@ -132,20 +322,21 @@ const CEFR_LEVELS = [
   { value: 'C2', label: 'Mastery', emoji: '🏆' },
 ];
 
-type GameType = 'match-race' | 'pronunciation' | null;
+type GameType = 'match-race' | 'pronunciation' | 'flashcards' | 'word-scramble' | 'memory' | 'kids-animals' | 'kids-colors' | null;
 
 const Games: React.FC = () => {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { user, loading: authLoading } = useAuth();
   const { activeCourse, progress, updateProgress, loading: progressLoading } = useUserProgress();
-  const { settings } = useAppSettings();
+  const { settings, setKidsMode } = useAppSettings();
   const { toast } = useToast();
 
   const [selectedGame, setSelectedGame] = useState<GameType>(null);
   const [difficultyLevel, setDifficultyLevel] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
   const [gamesPlayed, setGamesPlayed] = useState(0);
+  const [showKidsGames, setShowKidsGames] = useState(settings.kidsMode);
 
   const languageCode = activeCourse?.language_code || 'es';
   const currentLanguage = LANGUAGES.find(l => l.code === languageCode);
@@ -161,11 +352,25 @@ const Games: React.FC = () => {
     [currentCefr]
   );
 
-  const handleMatchGameComplete = useCallback(async (score: number, timeRemaining: number, perfectRun: boolean) => {
+  const flashcardWords = useMemo(() => 
+    FLASHCARD_WORDS_BY_LEVEL[currentCefr] || FLASHCARD_WORDS_BY_LEVEL.A1,
+    [currentCefr]
+  );
+
+  const scrambleWords = useMemo(() => 
+    SCRAMBLE_WORDS_BY_LEVEL[currentCefr] || SCRAMBLE_WORDS_BY_LEVEL.A1,
+    [currentCefr]
+  );
+
+  const memoryPairs = useMemo(() => 
+    MEMORY_PAIRS_BY_LEVEL[currentCefr] || MEMORY_PAIRS_BY_LEVEL.A1,
+    [currentCefr]
+  );
+
+  const handleGameComplete = useCallback(async (score: number, bonusMessage?: string) => {
     setTotalScore(prev => prev + score);
     setGamesPlayed(prev => prev + 1);
 
-    // Award XP
     const xpEarned = Math.floor(score / 2);
     if (progress && xpEarned > 0) {
       await updateProgress({
@@ -175,33 +380,42 @@ const Games: React.FC = () => {
     }
 
     toast({
-      title: perfectRun ? '🎉 Perfect Run!' : '✅ Game Complete!',
-      description: `You earned ${score} points and ${xpEarned} XP${timeRemaining > 0 ? ` with ${timeRemaining}s to spare!` : ''}`,
+      title: `🎉 ${t('games.complete')}`,
+      description: `${t('common.score')}: ${score} ${t('common.points')} • +${xpEarned} XP${bonusMessage ? ` • ${bonusMessage}` : ''}`,
     });
 
     setSelectedGame(null);
-  }, [progress, updateProgress, toast]);
+  }, [progress, updateProgress, toast, t]);
+
+  const handleMatchGameComplete = useCallback(async (score: number, timeRemaining: number, perfectRun: boolean) => {
+    handleGameComplete(score, perfectRun ? t('games.perfect') : undefined);
+  }, [handleGameComplete, t]);
 
   const handlePronunciationComplete = useCallback(async (score: number, perfectCount: number, totalAttempts: number) => {
-    setTotalScore(prev => prev + score);
-    setGamesPlayed(prev => prev + 1);
+    handleGameComplete(score, perfectCount > 0 ? `${perfectCount} ${t('games.perfect')}` : undefined);
+  }, [handleGameComplete, t]);
 
-    // Award XP
-    const xpEarned = Math.floor(score / 2) + perfectCount * 5;
-    if (progress && xpEarned > 0) {
-      await updateProgress({
-        total_xp: (progress.total_xp || 0) + xpEarned,
-        today_xp: (progress.today_xp || 0) + xpEarned,
-      });
-    }
+  const handleFlashCardsComplete = useCallback(async (knownCount: number, totalCards: number) => {
+    const score = knownCount * 10;
+    handleGameComplete(score, `${knownCount}/${totalCards} ${t('games.gotIt')}`);
+  }, [handleGameComplete, t]);
 
-    toast({
-      title: perfectCount > 0 ? '🌟 Great Pronunciation!' : '✅ Challenge Complete!',
-      description: `You earned ${score} points, ${perfectCount} perfect scores, and ${xpEarned} XP!`,
-    });
+  const handleWordScrambleComplete = useCallback(async (score: number, perfectWords: number) => {
+    handleGameComplete(score, `${perfectWords} ${t('games.perfect')}`);
+  }, [handleGameComplete, t]);
 
-    setSelectedGame(null);
-  }, [progress, updateProgress, toast]);
+  const handleMemoryComplete = useCallback(async (score: number, moves: number, time: number) => {
+    handleGameComplete(score, `${moves} ${t('common.moves')}`);
+  }, [handleGameComplete, t]);
+
+  const handleKidsGameComplete = useCallback(async (score: number, perfectCount: number) => {
+    handleGameComplete(score, `${perfectCount} ⭐`);
+  }, [handleGameComplete]);
+
+  const toggleKidsMode = useCallback((enabled: boolean) => {
+    setShowKidsGames(enabled);
+    setKidsMode(enabled);
+  }, [setKidsMode]);
 
   if (authLoading || progressLoading) {
     return (
@@ -219,7 +433,7 @@ const Games: React.FC = () => {
           leftSlot={
             <button onClick={() => setSelectedGame(null)} className="flex items-center gap-1 text-sm font-medium text-muted-foreground">
               <ArrowLeft className="w-4 h-4" />
-              {t('common.back', 'Back')}
+              {t('common.back')}
             </button>
           }
         />
@@ -229,9 +443,11 @@ const Games: React.FC = () => {
           <div className="flex items-center justify-center gap-2 mb-6">
             <Globe className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium">{currentLanguage?.flag} {currentLanguage?.name}</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-              {CEFR_LEVELS[difficultyLevel]?.emoji} {currentCefr}
-            </span>
+            {!showKidsGames && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                {CEFR_LEVELS[difficultyLevel]?.emoji} {currentCefr}
+              </span>
+            )}
           </div>
 
           {selectedGame === 'match-race' && (
@@ -251,6 +467,48 @@ const Games: React.FC = () => {
               passingScore={65}
             />
           )}
+
+          {selectedGame === 'flashcards' && (
+            <FlashCardGame
+              cards={flashcardWords}
+              languageCode={languageCode}
+              onComplete={handleFlashCardsComplete}
+              title={t('games.flashCards')}
+            />
+          )}
+
+          {selectedGame === 'word-scramble' && (
+            <WordScrambleGame
+              words={scrambleWords}
+              languageCode={languageCode}
+              onComplete={handleWordScrambleComplete}
+              timeLimit={60}
+            />
+          )}
+
+          {selectedGame === 'memory' && (
+            <MemoryGame
+              pairs={memoryPairs}
+              languageCode={languageCode}
+              onComplete={handleMemoryComplete}
+            />
+          )}
+
+          {selectedGame === 'kids-animals' && (
+            <KidsAnimalGame
+              animals={KIDS_ANIMALS}
+              languageCode={languageCode}
+              onComplete={handleKidsGameComplete}
+            />
+          )}
+
+          {selectedGame === 'kids-colors' && (
+            <KidsColorGame
+              colors={KIDS_COLORS}
+              languageCode={languageCode}
+              onComplete={handleKidsGameComplete}
+            />
+          )}
         </main>
 
         <BottomNavigation />
@@ -264,7 +522,7 @@ const Games: React.FC = () => {
       <header className="sticky top-0 bg-card/95 backdrop-blur-sm border-b border-border z-40 px-4 py-3">
         <div className="flex items-center justify-center gap-2 max-w-lg mx-auto">
           <Gamepad2 className="w-6 h-6 text-primary" />
-          <h1 className="font-bold text-lg">{t('games.title', 'Language Games')}</h1>
+          <h1 className="font-bold text-lg">{t('games.title')}</h1>
         </div>
       </header>
 
@@ -289,92 +547,158 @@ const Games: React.FC = () => {
           </div>
         </div>
 
-        {/* Difficulty Selector */}
+        {/* Kids Mode Toggle */}
         <div className="bg-card rounded-2xl p-4 shadow-sm">
-          <div className="flex justify-between items-center mb-3">
-            <span className="font-medium text-sm">{t('games.difficulty', 'Difficulty Level')}</span>
-            <span className="text-sm font-bold text-primary">
-              {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
-            </span>
-          </div>
-          <Slider
-            value={[difficultyLevel]}
-            onValueChange={(val) => setDifficultyLevel(val[0])}
-            max={5}
-            step={1}
-            className="w-full"
-          />
-          <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-            {CEFR_LEVELS.map((l, i) => (
-              <span key={l.value} className={cn(difficultyLevel === i && "text-primary font-medium")}>
-                {l.emoji}
-              </span>
-            ))}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center",
+                showKidsGames ? "bg-banana/20" : "bg-muted"
+              )}>
+                <Baby className={cn("w-5 h-5", showKidsGames ? "text-banana" : "text-muted-foreground")} />
+              </div>
+              <div>
+                <p className="font-medium">{t('games.kidsGames')}</p>
+                <p className="text-xs text-muted-foreground">{t('games.kidsAnimalsDesc')}</p>
+              </div>
+            </div>
+            <Switch
+              checked={showKidsGames}
+              onCheckedChange={toggleKidsMode}
+            />
           </div>
         </div>
 
+        {/* Difficulty Selector (only for regular games) */}
+        {!showKidsGames && (
+          <div className="bg-card rounded-2xl p-4 shadow-sm">
+            <div className="flex justify-between items-center mb-3">
+              <span className="font-medium text-sm">{t('games.difficulty')}</span>
+              <span className="text-sm font-bold text-primary">
+                {CEFR_LEVELS[difficultyLevel]?.emoji} {CEFR_LEVELS[difficultyLevel]?.label}
+              </span>
+            </div>
+            <Slider
+              value={[difficultyLevel]}
+              onValueChange={(val) => setDifficultyLevel(val[0])}
+              max={5}
+              step={1}
+              className="w-full"
+            />
+            <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+              {CEFR_LEVELS.map((l, i) => (
+                <span key={l.value} className={cn(difficultyLevel === i && "text-primary font-medium")}>
+                  {l.emoji}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Game Cards */}
         <div className="space-y-4">
-          <h2 className="font-bold text-lg">{t('games.chooseGame', 'Choose a Game')}</h2>
+          <h2 className="font-bold text-lg">{t('games.chooseGame')}</h2>
 
-          {/* Match Race */}
-          <button
-            onClick={() => setSelectedGame('match-race')}
-            className="w-full bg-card rounded-2xl p-6 shadow-md hover:shadow-lg transition-all text-left group"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Zap className="w-7 h-7 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg mb-1">Match Race</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Race against the clock to match word pairs! Build streaks for bonus points.
-                </p>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Timer className="w-3 h-3" /> 30 seconds
-                  </span>
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Target className="w-3 h-3" /> {matchPairs.length} pairs
-                  </span>
-                </div>
-              </div>
-            </div>
-          </button>
+          {showKidsGames ? (
+            // Kids Games
+            <>
+              <GameCard
+                icon={Cat}
+                iconColor="text-banana"
+                iconBg="bg-banana/10"
+                title={t('games.kidsAnimals')}
+                description={t('games.kidsAnimalsDesc')}
+                stats={[
+                  { icon: Target, text: `${KIDS_ANIMALS.length} animals` },
+                ]}
+                onClick={() => setSelectedGame('kids-animals')}
+              />
+              <GameCard
+                icon={Palette}
+                iconColor="text-primary"
+                iconBg="bg-primary/10"
+                title={t('games.kidsColors')}
+                description={t('games.kidsColorsDesc')}
+                stats={[
+                  { icon: Target, text: `${KIDS_COLORS.length} colors` },
+                ]}
+                onClick={() => setSelectedGame('kids-colors')}
+              />
+            </>
+          ) : (
+            // Regular Games
+            <>
+              <GameCard
+                icon={Zap}
+                iconColor="text-primary"
+                iconBg="bg-primary/10"
+                title={t('games.matchRace')}
+                description={t('games.matchRaceDesc')}
+                stats={[
+                  { icon: Timer, text: `30 ${t('games.seconds')}` },
+                  { icon: Target, text: `${matchPairs.length} ${t('games.pairs')}` },
+                ]}
+                onClick={() => setSelectedGame('match-race')}
+              />
 
-          {/* Pronunciation Challenge */}
-          <button
-            onClick={() => setSelectedGame('pronunciation')}
-            className="w-full bg-card rounded-2xl p-6 shadow-md hover:shadow-lg transition-all text-left group"
-          >
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-xl bg-success/10 flex items-center justify-center group-hover:scale-110 transition-transform">
-                <Mic2 className="w-7 h-7 text-success" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold text-lg mb-1">Pronunciation Challenge</h3>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Practice speaking and earn points for accurate pronunciation!
-                </p>
-                <div className="flex items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Target className="w-3 h-3" /> {pronunciationPhrases.length} phrases
-                  </span>
-                  <span className="flex items-center gap-1 text-muted-foreground">
-                    <Star className="w-3 h-3" /> Streak bonuses
-                  </span>
-                </div>
-              </div>
-            </div>
-          </button>
+              <GameCard
+                icon={Mic2}
+                iconColor="text-success"
+                iconBg="bg-success/10"
+                title={t('games.pronunciation')}
+                description={t('games.pronunciationDesc')}
+                stats={[
+                  { icon: Target, text: `${pronunciationPhrases.length} ${t('games.phrases')}` },
+                  { icon: Star, text: t('games.streakBonuses') },
+                ]}
+                onClick={() => setSelectedGame('pronunciation')}
+              />
+
+              <GameCard
+                icon={Layers}
+                iconColor="text-banana"
+                iconBg="bg-banana/10"
+                title={t('games.flashCards')}
+                description={t('games.flashCardsDesc')}
+                stats={[
+                  { icon: Target, text: `${flashcardWords.length} ${t('games.cards')}` },
+                ]}
+                onClick={() => setSelectedGame('flashcards')}
+              />
+
+              <GameCard
+                icon={Shuffle}
+                iconColor="text-xp"
+                iconBg="bg-xp/10"
+                title={t('games.wordScramble')}
+                description={t('games.wordScrambleDesc')}
+                stats={[
+                  { icon: Timer, text: `60 ${t('games.seconds')}` },
+                  { icon: Target, text: `${scrambleWords.length} ${t('common.words')}` },
+                ]}
+                onClick={() => setSelectedGame('word-scramble')}
+              />
+
+              <GameCard
+                icon={Brain}
+                iconColor="text-streak"
+                iconBg="bg-streak/10"
+                title={t('games.memory')}
+                description={t('games.memoryDesc')}
+                stats={[
+                  { icon: Target, text: `${memoryPairs.length} ${t('games.pairs')}` },
+                ]}
+                onClick={() => setSelectedGame('memory')}
+              />
+            </>
+          )}
         </div>
 
         {/* Tips */}
         <div className="bg-muted/50 rounded-2xl p-4 text-center">
           <AvatarMascot mood="happy" size="sm" className="mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
-            {t('games.tip', 'Tip: Higher difficulty levels give more XP!')}
+            {t('games.tip')}
           </p>
         </div>
       </main>
@@ -383,5 +707,40 @@ const Games: React.FC = () => {
     </div>
   );
 };
+
+// Game Card Component
+interface GameCardProps {
+  icon: React.ElementType;
+  iconColor: string;
+  iconBg: string;
+  title: string;
+  description: string;
+  stats: Array<{ icon: React.ElementType; text: string }>;
+  onClick: () => void;
+}
+
+const GameCard: React.FC<GameCardProps> = ({ icon: Icon, iconColor, iconBg, title, description, stats, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full bg-card rounded-2xl p-6 shadow-md hover:shadow-lg transition-all text-left group"
+  >
+    <div className="flex items-start gap-4">
+      <div className={cn("w-14 h-14 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform", iconBg)}>
+        <Icon className={cn("w-7 h-7", iconColor)} />
+      </div>
+      <div className="flex-1">
+        <h3 className="font-bold text-lg mb-1">{title}</h3>
+        <p className="text-sm text-muted-foreground mb-2">{description}</p>
+        <div className="flex items-center gap-3 text-xs">
+          {stats.map((stat, i) => (
+            <span key={i} className="flex items-center gap-1 text-muted-foreground">
+              <stat.icon className="w-3 h-3" /> {stat.text}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  </button>
+);
 
 export default Games;
