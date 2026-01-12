@@ -55,6 +55,7 @@ const en = {
     funPractice: 'Fun practice',
     speed: 'Speed',
     speedChallenge: '60s challenge',
+    goalComplete: 'Goal complete!',
     quests: {
       firstLesson: 'First Lesson',
       firstLessonDesc: 'Complete a lesson today',
