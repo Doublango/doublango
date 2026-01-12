@@ -6,7 +6,7 @@ import { useUserProgress } from '@/hooks/useUserProgress';
 import { useToast } from '@/hooks/use-toast';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import ExerciseCharacter from '@/components/ExerciseCharacter';
 import ProgressBar from '@/components/ProgressBar';
 import Confetti from '@/components/Confetti';
 import SpeechExercise from '@/components/SpeechExercise';
@@ -594,7 +594,7 @@ const LessonPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <ExerciseCharacter mood="thinking" size="md" isKidsMode={appSettings.kidsMode ?? false} />
       </div>
     );
   }
@@ -603,7 +603,7 @@ const LessonPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col items-center justify-center p-6">
         {showConfetti && <Confetti trigger={showConfetti} bananaTheme />}
-        <MonkeyMascot mood="celebrating" size="xl" animate className="mb-6" />
+        <ExerciseCharacter mood="celebrating" size="md" isKidsMode={appSettings.kidsMode ?? false} className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">Lesson Complete!</h1>
         <p className="text-muted-foreground mb-8">Great job finishing the lesson</p>
         
@@ -640,7 +640,7 @@ const LessonPage: React.FC = () => {
   if (lives <= 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-banana/10 to-background flex flex-col items-center justify-center p-6">
-        <MonkeyMascot mood="sad" size="xl" animate className="mb-6" />
+        <ExerciseCharacter mood="sad" size="md" isKidsMode={appSettings.kidsMode ?? false} className="mb-6" />
         <h1 className="text-3xl font-bold mb-2">Out of Hearts!</h1>
         <p className="text-muted-foreground mb-8">Practice more or wait for hearts to regenerate</p>
         
@@ -717,7 +717,7 @@ const LessonPage: React.FC = () => {
             {/* Question */}
             <div className="mb-6">
               <div className="flex items-start gap-3">
-                <MonkeyMascot mood={monkeyMood} size="sm" />
+                <ExerciseCharacter mood={monkeyMood} size="sm" isKidsMode={appSettings.kidsMode ?? false} questionId={currentExercise.id} />
                 <div className="bg-card rounded-2xl p-4 shadow-sm flex-1">
                   <p className="text-lg font-semibold">{currentExercise.question}</p>
                   {currentExercise.hint && !isChecked && (

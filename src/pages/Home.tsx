@@ -132,7 +132,6 @@ const Home: React.FC = () => {
 
   const handleNavClick = useCallback((path: string) => {
     hapticLight();
-    playSound('pop');
     navigate(path);
   }, [navigate]);
 
@@ -171,17 +170,11 @@ const Home: React.FC = () => {
       <AppHeader
         leftSlot={<LanguageSelector />}
         rightSlot={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {/* Lives indicator */}
             <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-heart/10">
               <Heart className="w-4 h-4 text-heart animate-heartbeat" fill="currentColor" />
               <span className="text-sm font-bold text-heart">{lives}</span>
-            </div>
-            
-            {/* Crystals */}
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-secondary/10">
-              <span className="text-sm">💎</span>
-              <span className="text-sm font-bold text-secondary">{crystals}</span>
             </div>
             
             {/* Crown/Upgrade */}

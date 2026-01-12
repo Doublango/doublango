@@ -22,9 +22,11 @@ const BrandLogo: React.FC<BrandLogoProps> = ({ className, compact = false }) => 
         src={logoImage} 
         alt="DoubLango" 
         className={cn(
-          "object-contain",
-          compact ? "h-8 w-8" : "h-10 w-10"
+          "object-contain rounded-lg",
+          compact ? "h-8 w-8" : "h-10 w-10",
+          "dark:bg-transparent"
         )}
+        style={{ backgroundColor: 'transparent' }}
       />
       {!compact && (
         <span className="font-extrabold tracking-tight text-foreground">DoubLango</span>
