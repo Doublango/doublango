@@ -42,6 +42,7 @@ const Home: React.FC = () => {
   const [showConfetti, setShowConfetti] = useState(false);
 
   // Track XP changes for Focus Mode and show burst animation
+  // NOTE: Avoid auto-playing sounds just by navigating to Home.
   useEffect(() => {
     const currentXp = progress?.today_xp || 0;
     if (prevTodayXp !== null && currentXp > prevTodayXp) {
@@ -49,17 +50,15 @@ const Home: React.FC = () => {
       setXpGained(gained);
       setShowXPBurst(true);
       hapticSuccess();
-      playSound('coin');
-      
+
       if (focusSession.isActive) {
         recordXpEarned(gained);
       }
-      
-      // Check if goal just reached
+
+      // Check if goal just reached (visual celebration only)
       const dailyGoal = profile?.daily_goal_xp || 20;
       if (prevTodayXp < dailyGoal && currentXp >= dailyGoal) {
         setShowConfetti(true);
-        playSound('gameComplete');
       }
     }
     setPrevTodayXp(currentXp);
@@ -167,30 +166,7 @@ const Home: React.FC = () => {
       <Confetti trigger={showConfetti} onComplete={() => setShowConfetti(false)} bananaTheme />
 
       {/* Header */}
-      <AppHeader
-        leftSlot={<LanguageSelector />}
-        rightSlot={
-          <div className="flex items-center gap-1.5">
-            {/* Lives indicator */}
-            <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-heart/10">
-              <Heart className="w-4 h-4 text-heart animate-heartbeat" fill="currentColor" />
-              <span className="text-sm font-bold text-heart">{lives}</span>
-            </div>
-            
-            {/* Crown/Upgrade */}
-            <button
-              onClick={() => {
-                hapticLight();
-                setShowUpgradeModal(true);
-              }}
-              className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-all hover:scale-110 active:scale-95"
-              aria-label={t('subscription.upgradeToPremium')}
-            >
-              <Crown className="w-5 h-5 text-banana" />
-            </button>
-          </div>
-        }
-      />
+      <AppHeader leftSlot={<LanguageSelector />} />
 
       <main className="px-4 py-6 max-w-lg mx-auto space-y-5 relative z-10">
         {/* Hero Section with Parrot */}
@@ -206,6 +182,25 @@ const Home: React.FC = () => {
           <XPBurst amount={xpGained} trigger={showXPBurst} onComplete={() => setShowXPBurst(false)} />
           
           <div className="relative z-10 flex flex-col items-center">
+            {/* Top row: lives + upgrade (moved out of header to prevent overlap) */}
+            <div className="w-full flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-heart/10 border border-heart/20">
+                <Heart className="w-4 h-4 text-heart animate-heartbeat" fill="currentColor" />
+                <span className="text-sm font-black text-heart">{lives}</span>
+              </div>
+
+              <button
+                onClick={() => {
+                  hapticLight();
+                  setShowUpgradeModal(true);
+                }}
+                className="p-2 rounded-xl bg-banana/10 hover:bg-banana/20 transition-all hover:scale-110 active:scale-95"
+                aria-label={t('subscription.upgradeToPremium')}
+              >
+                <Crown className="w-5 h-5 text-banana" />
+              </button>
+            </div>
+
             {/* Streak display */}
             {streak > 0 && (
               <div className="absolute -top-2 -right-2">

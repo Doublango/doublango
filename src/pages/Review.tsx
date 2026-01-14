@@ -38,8 +38,8 @@ const reviewModes = [
     title: 'Speed Review',
     description: 'Quick fire questions',
     icon: Zap,
-    color: 'bg-warning/10 text-warning',
-    available: false,
+    color: 'bg-xp/10 text-xp',
+    available: true,
   },
   {
     id: 'hard',
@@ -47,7 +47,7 @@ const reviewModes = [
     description: 'Your most challenging vocabulary',
     icon: Brain,
     color: 'bg-secondary/10 text-secondary',
-    available: false,
+    available: true,
   },
 ];
 
@@ -58,6 +58,30 @@ interface ReviewQuestion {
   key: string;
 }
 
+const HARD_WORDS_KEY_PREFIX = 'dbl_hard_words_v1';
+const hardWordsStorageKey = (languageCode: string, kidsMode: boolean) =>
+  `${HARD_WORDS_KEY_PREFIX}:${languageCode}:${kidsMode ? 'kids' : 'adult'}`;
+
+const loadHardWordKeys = (languageCode: string, kidsMode: boolean): string[] => {
+  try {
+    const raw = localStorage.getItem(hardWordsStorageKey(languageCode, kidsMode));
+    const parsed = raw ? (JSON.parse(raw) as unknown) : [];
+    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+
+const recordHardWordKey = (languageCode: string, kidsMode: boolean, key: string) => {
+  try {
+    const existing = loadHardWordKeys(languageCode, kidsMode);
+    const next = [key, ...existing.filter((k) => k !== key)].slice(0, 120);
+    localStorage.setItem(hardWordsStorageKey(languageCode, kidsMode), JSON.stringify(next));
+  } catch {
+    // ignore
+  }
+};
+
 const Review: React.FC = () => {
   const navigate = useNavigate();
   const { mode } = useParams<{ mode?: string }>();
@@ -66,7 +90,7 @@ const Review: React.FC = () => {
   const { progress, activeCourse, loading: progressLoading } = useUserProgress();
   const { settings } = useAppSettings();
 
-  // State for practice/mistakes mode
+  // State for practice/mistakes/speed/hard mode
   const [questions, setQuestions] = useState<ReviewQuestion[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
@@ -76,6 +100,7 @@ const Review: React.FC = () => {
   const [mistakes, setMistakes] = useState<ReviewQuestion[]>([]);
   const [isComplete, setIsComplete] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(0);
 
   const languageCode = activeCourse?.language_code || 'es';
   const languageContent = LANGUAGE_CONTENT[languageCode] || LANGUAGE_CONTENT.es;
@@ -84,29 +109,43 @@ const Review: React.FC = () => {
 
   // Generate questions based on mode
   useEffect(() => {
-    if (!mode || !['practice', 'mistakes'].includes(mode)) return;
+    if (!mode || !['practice', 'mistakes', 'speed', 'hard'].includes(mode)) return;
 
     const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY;
     const allPhrases: { key: string; en: string }[] = [];
 
-    phraseLibrary.forEach(category => {
-      category.phrases.forEach(phrase => {
+    phraseLibrary.forEach((category) => {
+      category.phrases.forEach((phrase) => {
         allPhrases.push({ key: phrase.key, en: phrase.en });
       });
     });
 
-    // Shuffle and take 10 questions
-    const shuffled = [...allPhrases].sort(() => Math.random() - 0.5).slice(0, 10);
+    const pickBase = () => {
+      if (mode === 'hard') {
+        const hardKeys = loadHardWordKeys(languageCode, isKidsMode);
+        const hardPool = allPhrases.filter((p) => hardKeys.includes(p.key));
+        if (hardPool.length >= 6) return hardPool;
+        // fallback: longer phrases tend to be harder
+        return [...allPhrases].sort((a, b) => b.en.length - a.en.length).slice(0, Math.min(40, allPhrases.length));
+      }
+      return allPhrases;
+    };
 
-    const generatedQuestions: ReviewQuestion[] = shuffled.map(phrase => {
+    const base = pickBase();
+    const count = mode === 'speed' ? 15 : 10;
+
+    // Shuffle and take questions
+    const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, count);
+
+    const generatedQuestions: ReviewQuestion[] = shuffled.map((phrase) => {
       const translation = extendedContent[phrase.key] || languageContent[phrase.key] || phrase.en;
-      
+
       // Generate wrong options
       const wrongOptions = allPhrases
-        .filter(p => p.key !== phrase.key)
+        .filter((p) => p.key !== phrase.key)
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
-        .map(p => extendedContent[p.key] || languageContent[p.key] || p.en);
+        .map((p) => extendedContent[p.key] || languageContent[p.key] || p.en);
 
       const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
 
@@ -134,6 +173,37 @@ const Review: React.FC = () => {
     }
   }, [user, authLoading, progressLoading, navigate]);
 
+  // Speed Review timer
+  useEffect(() => {
+    if (mode !== 'speed') return;
+    if (isComplete) return;
+    if (isChecked) return;
+    if (!questions[currentIndex]) return;
+
+    setTimeLeft(7);
+    const interval = window.setInterval(() => {
+      setTimeLeft((prev) => prev - 1);
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [mode, currentIndex, isComplete, isChecked, questions]);
+
+  useEffect(() => {
+    if (mode !== 'speed') return;
+    if (isComplete) return;
+    if (isChecked) return;
+    const q = questions[currentIndex];
+    if (!q) return;
+
+    if (timeLeft <= 0) {
+      setIsChecked(true);
+      setIsCorrect(false);
+      setMistakes((prev) => [...prev, q]);
+      recordHardWordKey(languageCode, isKidsMode, q.key);
+      window.setTimeout(() => nextQuestion(), 500);
+    }
+  }, [mode, timeLeft, isComplete, isChecked, currentIndex, questions, languageCode, isKidsMode]);
+
   const speakText = useCallback(async (text: string, slow = false) => {
     if (isSpeaking) return;
     setIsSpeaking(true);
@@ -160,25 +230,28 @@ const Review: React.FC = () => {
   };
 
   const checkAnswer = () => {
-    if (!selectedAnswer || !questions[currentIndex]) return;
+    const q = questions[currentIndex];
+    if (!q || !selectedAnswer) return;
 
-    const correct = selectedAnswer === questions[currentIndex].correctAnswer;
+    const correct = selectedAnswer === q.correctAnswer;
     setIsChecked(true);
     setIsCorrect(correct);
 
     if (correct) {
-      setScore(prev => prev + 1);
+      setScore((prev) => prev + 1);
     } else {
-      setMistakes(prev => [...prev, questions[currentIndex]]);
+      setMistakes((prev) => [...prev, q]);
+      recordHardWordKey(languageCode, isKidsMode, q.key);
     }
   };
 
   const nextQuestion = () => {
     if (currentIndex < questions.length - 1) {
-      setCurrentIndex(prev => prev + 1);
+      setCurrentIndex((prev) => prev + 1);
       setSelectedAnswer(null);
       setIsChecked(false);
       setIsCorrect(false);
+      setTimeLeft(0);
     } else {
       setIsComplete(true);
     }
@@ -191,22 +264,38 @@ const Review: React.FC = () => {
     setIsComplete(false);
     setSelectedAnswer(null);
     setIsChecked(false);
+    setTimeLeft(0);
+
     // Regenerate questions
     const phraseLibrary = isKidsMode ? KIDS_PHRASE_LIBRARY : ADULT_PHRASE_LIBRARY;
     const allPhrases: { key: string; en: string }[] = [];
-    phraseLibrary.forEach(category => {
-      category.phrases.forEach(phrase => {
+    phraseLibrary.forEach((category) => {
+      category.phrases.forEach((phrase) => {
         allPhrases.push({ key: phrase.key, en: phrase.en });
       });
     });
-    const shuffled = [...allPhrases].sort(() => Math.random() - 0.5).slice(0, 10);
-    const generatedQuestions: ReviewQuestion[] = shuffled.map(phrase => {
+
+    const pickBase = () => {
+      if (mode === 'hard') {
+        const hardKeys = loadHardWordKeys(languageCode, isKidsMode);
+        const hardPool = allPhrases.filter((p) => hardKeys.includes(p.key));
+        if (hardPool.length >= 6) return hardPool;
+        return [...allPhrases].sort((a, b) => b.en.length - a.en.length).slice(0, Math.min(40, allPhrases.length));
+      }
+      return allPhrases;
+    };
+
+    const base = pickBase();
+    const count = mode === 'speed' ? 15 : 10;
+
+    const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, count);
+    const generatedQuestions: ReviewQuestion[] = shuffled.map((phrase) => {
       const translation = extendedContent[phrase.key] || languageContent[phrase.key] || phrase.en;
       const wrongOptions = allPhrases
-        .filter(p => p.key !== phrase.key)
+        .filter((p) => p.key !== phrase.key)
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
-        .map(p => extendedContent[p.key] || languageContent[p.key] || p.en);
+        .map((p) => extendedContent[p.key] || languageContent[p.key] || p.en);
       const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
       return { question: phrase.en, correctAnswer: translation, options, key: phrase.key };
     });
@@ -221,8 +310,8 @@ const Review: React.FC = () => {
     );
   }
 
-  // If we're in a specific mode (practice or mistakes), show the practice UI
-  if (mode && ['practice', 'mistakes'].includes(mode)) {
+  // If we're in a specific mode, show the practice UI
+  if (mode && ['practice', 'mistakes', 'speed', 'hard'].includes(mode)) {
     const currentQuestion = questions[currentIndex];
     const progressPercent = questions.length > 0 ? ((currentIndex + 1) / questions.length) * 100 : 0;
 
@@ -282,10 +371,21 @@ const Review: React.FC = () => {
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between text-sm text-muted-foreground mb-2">
-              <span>{mode === 'practice' ? 'Practice' : 'Mistakes Review'}</span>
+              <span>
+                {mode === 'practice'
+                  ? 'Practice'
+                  : mode === 'mistakes'
+                    ? 'Mistakes Review'
+                    : mode === 'speed'
+                      ? `Speed Review • ${Math.max(0, timeLeft)}s`
+                      : 'Hard Words'}
+              </span>
               <span>{currentIndex + 1} / {questions.length}</span>
             </div>
             <Progress value={progressPercent} className="h-2" />
+            {mode === 'speed' && (
+              <Progress value={(Math.max(0, timeLeft) / 7) * 100} className="h-1 mt-2" />
+            )}
           </div>
 
           {currentQuestion && (
@@ -422,11 +522,9 @@ const Review: React.FC = () => {
           {reviewModes.map((reviewMode) => (
             <button
               key={reviewMode.id}
-              onClick={() => reviewMode.available && navigate(`/review/${reviewMode.id}`)}
-              disabled={!reviewMode.available}
+              onClick={() => navigate(`/review/${reviewMode.id}`)}
               className={cn(
-                'w-full bg-card rounded-2xl p-4 shadow-sm flex items-center gap-4 transition-all',
-                reviewMode.available ? 'hover:shadow-md cursor-pointer' : 'opacity-50 cursor-not-allowed'
+                'w-full bg-card rounded-2xl p-4 shadow-sm flex items-center gap-4 transition-all hover:shadow-md cursor-pointer'
               )}
             >
               <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', reviewMode.color)}>
@@ -436,9 +534,6 @@ const Review: React.FC = () => {
                 <p className="font-semibold">{reviewMode.title}</p>
                 <p className="text-sm text-muted-foreground">{reviewMode.description}</p>
               </div>
-              {!reviewMode.available && (
-                <span className="text-xs bg-muted px-2 py-1 rounded-full">Coming Soon</span>
-              )}
             </button>
           ))}
         </div>
