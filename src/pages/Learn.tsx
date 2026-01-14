@@ -7,6 +7,7 @@ import { useCefrProgress } from '@/hooks/useCefrProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
 import MonkeyMascot from '@/components/MonkeyMascot';
+import ExerciseCharacter from '@/components/ExerciseCharacter';
 import Confetti from '@/components/Confetti';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
@@ -438,9 +439,19 @@ const Learn: React.FC = () => {
                               !isUnlocked && 'cursor-not-allowed'
                             )}
                           >
-                            <div>
-                              <p className="font-semibold text-left">{lesson.title}</p>
-                              <p className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</p>
+                            <div className="flex items-center gap-3">
+                              {isUnlocked && (
+                                <ExerciseCharacter
+                                  mood={isCompleted ? 'celebrating' : isNext ? 'excited' : 'happy'}
+                                  size="sm"
+                                  isKidsMode={appSettings.kidsMode}
+                                  questionId={`${unit.id}:${lesson.id}`}
+                                />
+                              )}
+                              <div>
+                                <p className="font-semibold text-left">{lesson.title}</p>
+                                <p className="text-xs text-muted-foreground">+{lesson.xp_reward} XP</p>
+                              </div>
                             </div>
                             {isUnlocked && <ChevronRight className="w-5 h-5 text-muted-foreground" />}
                           </button>
