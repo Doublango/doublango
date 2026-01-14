@@ -137,25 +137,38 @@ const Review: React.FC = () => {
     // Shuffle and take questions
     const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, count);
 
-    const generatedQuestions: ReviewQuestion[] = shuffled.map((phrase) => {
-      const translation = extendedContent[phrase.key] || languageContent[phrase.key] || phrase.en;
+    const generatedQuestions: ReviewQuestion[] = shuffled
+      .map((phrase) => {
+        const translation = extendedContent[phrase.key] || languageContent[phrase.key];
+        
+        // Skip phrases that don't have a proper translation (avoid English-only questions)
+        if (!translation || translation === phrase.en) return null;
 
-      // Generate wrong options
-      const wrongOptions = allPhrases
-        .filter((p) => p.key !== phrase.key)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map((p) => extendedContent[p.key] || languageContent[p.key] || p.en);
+        // Generate wrong options - only use phrases that have real translations
+        const wrongOptions = allPhrases
+          .filter((p) => p.key !== phrase.key)
+          .map((p) => ({
+            key: p.key,
+            translation: extendedContent[p.key] || languageContent[p.key],
+          }))
+          .filter((p) => p.translation && p.translation !== allPhrases.find(ap => ap.key === p.key)?.en)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map((p) => p.translation);
 
-      const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
+        // Need at least 3 wrong options for a proper quiz
+        if (wrongOptions.length < 3) return null;
 
-      return {
-        question: phrase.en,
-        correctAnswer: translation,
-        options,
-        key: phrase.key,
-      };
-    });
+        const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
+
+        return {
+          question: phrase.en,
+          correctAnswer: translation,
+          options,
+          key: phrase.key,
+        };
+      })
+      .filter((q): q is ReviewQuestion => q !== null);
 
     setQuestions(generatedQuestions);
     setCurrentIndex(0);
@@ -200,7 +213,8 @@ const Review: React.FC = () => {
       setIsCorrect(false);
       setMistakes((prev) => [...prev, q]);
       recordHardWordKey(languageCode, isKidsMode, q.key);
-      window.setTimeout(() => nextQuestion(), 500);
+      // Give user 2 seconds to see the correct answer before moving on
+      window.setTimeout(() => nextQuestion(), 2000);
     }
   }, [mode, timeLeft, isComplete, isChecked, currentIndex, questions, languageCode, isKidsMode]);
 
@@ -288,17 +302,30 @@ const Review: React.FC = () => {
     const base = pickBase();
     const count = mode === 'speed' ? 15 : 10;
 
-    const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, count);
-    const generatedQuestions: ReviewQuestion[] = shuffled.map((phrase) => {
-      const translation = extendedContent[phrase.key] || languageContent[phrase.key] || phrase.en;
-      const wrongOptions = allPhrases
-        .filter((p) => p.key !== phrase.key)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3)
-        .map((p) => extendedContent[p.key] || languageContent[p.key] || p.en);
-      const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
-      return { question: phrase.en, correctAnswer: translation, options, key: phrase.key };
-    });
+    const shuffled = [...base].sort(() => Math.random() - 0.5).slice(0, count * 2);
+    const generatedQuestions: ReviewQuestion[] = shuffled
+      .map((phrase) => {
+        const translation = extendedContent[phrase.key] || languageContent[phrase.key];
+        if (!translation || translation === phrase.en) return null;
+        
+        const wrongOptions = allPhrases
+          .filter((p) => p.key !== phrase.key)
+          .map((p) => ({
+            key: p.key,
+            translation: extendedContent[p.key] || languageContent[p.key],
+          }))
+          .filter((p) => p.translation && p.translation !== allPhrases.find(ap => ap.key === p.key)?.en)
+          .sort(() => Math.random() - 0.5)
+          .slice(0, 3)
+          .map((p) => p.translation);
+        
+        if (wrongOptions.length < 3) return null;
+        
+        const options = [translation, ...wrongOptions].sort(() => Math.random() - 0.5);
+        return { question: phrase.en, correctAnswer: translation, options, key: phrase.key };
+      })
+      .filter((q): q is ReviewQuestion => q !== null)
+      .slice(0, count);
     setQuestions(generatedQuestions);
   };
 
