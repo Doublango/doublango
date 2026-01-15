@@ -6,7 +6,7 @@ import { useUserProgress } from '@/hooks/useUserProgress';
 import { useCefrProgress } from '@/hooks/useCefrProgress';
 import { useTranslation } from 'react-i18next';
 import BottomNavigation from '@/components/BottomNavigation';
-import MonkeyMascot from '@/components/MonkeyMascot';
+import AvatarMascot from '@/components/AvatarMascot';
 import ExerciseCharacter from '@/components/ExerciseCharacter';
 import Confetti from '@/components/Confetti';
 import { Slider } from '@/components/ui/slider';
@@ -250,7 +250,7 @@ const Learn: React.FC = () => {
   if (authLoading || progressLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <MonkeyMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -262,7 +262,7 @@ const Learn: React.FC = () => {
         <Confetti trigger={showConfetti} onComplete={() => setShowConfetti(false)} />
         
         <PartyPopper className="w-20 h-20 text-primary mb-4 animate-bounce" />
-        <MonkeyMascot mood="celebrating" size="xl" animate className="mb-6" />
+        <AvatarMascot mood="celebrating" size="xl" animate className="mb-6" />
         
         <h1 className="text-3xl font-bold mb-2 text-center">
           🎉 {t('learn.levelComplete', 'Level Complete!')} 🎉
@@ -492,7 +492,7 @@ const Learn: React.FC = () => {
 
           {units.length === 0 && (
             <div className="text-center py-12">
-              <MonkeyMascot mood="sad" size="lg" className="mx-auto mb-4" />
+              <AvatarMascot mood="sad" size="lg" className="mx-auto mb-4" />
               <h2 className="text-xl font-bold mb-2">{t('common.loading')}</h2>
               <p className="text-muted-foreground">Content for this language is coming soon!</p>
             </div>

@@ -11,7 +11,7 @@ import LanguageSelector from '@/components/LanguageSelector';
 import AppHeader from '@/components/AppHeader';
 import UpgradeModal from '@/components/UpgradeModal';
 import FocusModeWidget from '@/components/FocusModeWidget';
-import AnimatedParrot from '@/components/AnimatedParrot';
+import AnimatedMascot from '@/components/AnimatedMascot';
 import FloatingParticles from '@/components/FloatingParticles';
 import StreakFlame from '@/components/StreakFlame';
 import XPBurst from '@/components/XPBurst';
@@ -137,7 +137,7 @@ const Home: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <AnimatedParrot mood="thinking" size="xl" showSpeechBubble speechText="Loading..." />
+        <AnimatedMascot mood="thinking" size="xl" showSpeechBubble speechText="Loading..." />
       </div>
     );
   }
@@ -208,9 +208,9 @@ const Home: React.FC = () => {
               </div>
             )}
             
-            {/* Animated Parrot Character */}
+            {/* Animated Character - uses user's chosen avatar */}
             <div className="relative mb-4">
-              <AnimatedParrot 
+              <AnimatedMascot 
                 mood={goalReached ? 'celebrating' : streak > 0 ? 'excited' : 'happy'} 
                 size="xl"
                 showSpeechBubble={goalReached}

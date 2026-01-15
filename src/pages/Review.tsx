@@ -6,7 +6,6 @@ import { useTranslation } from 'react-i18next';
 import { useAppSettings } from '@/contexts/AppSettingsContext';
 import BottomNavigation from '@/components/BottomNavigation';
 import AppHeader from '@/components/AppHeader';
-import ParrotMascot from '@/components/ParrotMascot';
 import AvatarMascot from '@/components/AvatarMascot';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -332,7 +331,7 @@ const Review: React.FC = () => {
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
-        <ParrotMascot mood="thinking" size="lg" animate />
+        <AvatarMascot mood="thinking" size="lg" animate />
       </div>
     );
   }
@@ -345,11 +344,7 @@ const Review: React.FC = () => {
     if (isComplete) {
       return (
         <div className="min-h-screen bg-gradient-to-b from-primary/10 to-background flex flex-col items-center justify-center p-6">
-          {isKidsMode ? (
-            <AvatarMascot mood="celebrating" size="xl" animate className="mb-6" />
-          ) : (
-            <ParrotMascot mood="celebrating" size="xl" animate className="mb-6" />
-          )}
+          <AvatarMascot mood="celebrating" size="xl" animate className="mb-6" />
           <h1 className="text-3xl font-bold mb-2">Review Complete!</h1>
           <p className="text-muted-foreground mb-6">
             You got {score} out of {questions.length} correct
@@ -517,11 +512,7 @@ const Review: React.FC = () => {
         {/* Stats */}
         <div className="bg-card rounded-2xl p-6 shadow-md">
           <div className="flex items-center gap-4 mb-4">
-            {isKidsMode ? (
-              <AvatarMascot mood="happy" size="md" />
-            ) : (
-              <ParrotMascot mood="happy" size="md" />
-            )}
+            <AvatarMascot mood="happy" size="md" />
             <div>
               <h2 className="font-bold text-lg">Keep practicing!</h2>
               <p className="text-sm text-muted-foreground">

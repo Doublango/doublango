@@ -9,8 +9,6 @@ import { Label } from '@/components/ui/label';
 import { X, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-// Import monkey image
-import monkeyImg from '@/assets/doublango-logo.png';
 
 interface EditProfileModalProps {
   isOpen: boolean;
@@ -24,14 +22,18 @@ interface EditProfileModalProps {
   onSave: () => void;
 }
 
-// Avatar options with proper image/emoji handling
-const AVATAR_OPTIONS: { type: AvatarType; emoji: string; name: string; image?: string }[] = [
-  { type: 'monkey', emoji: '🐵', name: 'Mango', image: monkeyImg },
-  { type: 'cat', emoji: '🐱', name: 'Whiskers' },
-  { type: 'owl', emoji: '🦉', name: 'Sage' },
-  { type: 'dragon', emoji: '🐉', name: 'Blaze' },
-  { type: 'robot', emoji: '🤖', name: 'Beep' },
-  { type: 'alien', emoji: '👽', name: 'Zyx' },
+// Avatar options with bright, interesting animals
+const AVATAR_OPTIONS: { type: AvatarType; emoji: string; name: string; color: string }[] = [
+  { type: 'parrot', emoji: '🦜', name: 'Rio', color: 'from-green-400 to-emerald-500' },
+  { type: 'fox', emoji: '🦊', name: 'Foxy', color: 'from-orange-400 to-amber-500' },
+  { type: 'panda', emoji: '🐼', name: 'Bao', color: 'from-slate-300 to-slate-400' },
+  { type: 'unicorn', emoji: '🦄', name: 'Sparkle', color: 'from-pink-400 to-purple-500' },
+  { type: 'penguin', emoji: '🐧', name: 'Waddle', color: 'from-sky-400 to-blue-500' },
+  { type: 'lion', emoji: '🦁', name: 'Leo', color: 'from-yellow-400 to-orange-500' },
+  { type: 'bunny', emoji: '🐰', name: 'Hoppy', color: 'from-pink-300 to-rose-400' },
+  { type: 'koala', emoji: '🐨', name: 'Koko', color: 'from-gray-400 to-slate-500' },
+  { type: 'tiger', emoji: '🐯', name: 'Stripes', color: 'from-orange-500 to-red-500' },
+  { type: 'monkey', emoji: '🐵', name: 'Mango', color: 'from-amber-400 to-yellow-500' },
 ];
 
 const EditProfileModal: React.FC<EditProfileModalProps> = ({
@@ -109,31 +111,39 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({
           {/* Avatar Selector */}
           <div className="mb-6">
             <Label className="mb-2 block">{t('profile.avatar', 'Avatar')}</Label>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-5 gap-2">
               {AVATAR_OPTIONS.map((avatar) => (
                 <button
                   key={avatar.type}
                   onClick={() => setSelectedAvatar(avatar.type)}
                   className={cn(
-                    'relative p-3 rounded-xl border-2 transition-all text-center',
+                    'relative p-2 rounded-xl border-2 transition-all text-center overflow-hidden group',
                     selectedAvatar === avatar.type
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-primary bg-primary/10 scale-105 ring-2 ring-primary/30'
+                      : 'border-border hover:border-primary/50 hover:scale-102'
                   )}
                 >
+                  {/* Gradient glow */}
+                  <div className={cn(
+                    'absolute inset-0 bg-gradient-to-br opacity-20 group-hover:opacity-30 transition-opacity',
+                    avatar.color
+                  )} />
+                  
                   {selectedAvatar === avatar.type && (
-                    <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                      <Check className="w-3 h-3 text-primary-foreground" />
+                    <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary flex items-center justify-center z-10">
+                      <Check className="w-2.5 h-2.5 text-primary-foreground" />
                     </div>
                   )}
-                  {avatar.image ? (
-                    <div className="w-12 h-12 mx-auto mb-1 rounded-full overflow-hidden bg-muted">
-                      <img src={avatar.image} alt={avatar.name} className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <span className="text-3xl block mb-1">{avatar.emoji}</span>
-                  )}
-                  <p className="text-xs font-medium">{avatar.name}</p>
+                  
+                  <div className="relative z-10">
+                    <span className={cn(
+                      'text-2xl block mb-0.5 group-hover:scale-110 transition-transform',
+                      selectedAvatar === avatar.type && 'animate-bounce'
+                    )}>
+                      {avatar.emoji}
+                    </span>
+                    <p className="text-[10px] font-medium truncate">{avatar.name}</p>
+                  </div>
                 </button>
               ))}
             </div>

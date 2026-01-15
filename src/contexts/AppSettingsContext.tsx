@@ -6,7 +6,7 @@ import React, {
   type ReactNode,
 } from "react";
 
-export type AvatarType = "monkey" | "robot" | "alien" | "dragon" | "owl" | "cat";
+export type AvatarType = "monkey" | "parrot" | "fox" | "panda" | "unicorn" | "penguin" | "lion" | "bunny" | "koala" | "tiger";
 export type TTSEngine = "proxy" | "webspeech";
 
 interface AppSettings {
@@ -35,13 +35,13 @@ interface AppSettingsContextType {
 const defaultSettings: AppSettings = {
   darkMode: false,
   kidsMode: false,
-  avatar: "monkey",
+  avatar: "parrot",
   ttsEngine: "proxy",
   ttsVoiceURI: null,
 };
 
 const kidsSettings: Partial<AppSettings> = {
-  avatar: "cat",
+  avatar: "bunny",
 };
 
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
