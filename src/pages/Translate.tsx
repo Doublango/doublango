@@ -7,6 +7,8 @@ import { useToast } from '@/hooks/use-toast';
 import BottomNavigation from '@/components/BottomNavigation';
 import AppHeader from '@/components/AppHeader';
 import AvatarMascot from '@/components/AvatarMascot';
+import ChatMessage from '@/components/ChatMessage';
+import TopicSelector from '@/components/TopicSelector';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -16,7 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mic, MicOff, Volume2, Copy, Bookmark, BookmarkCheck, ArrowRightLeft, Loader2, Languages, Turtle } from 'lucide-react';
+import { 
+  Mic, MicOff, Volume2, Copy, Bookmark, BookmarkCheck, 
+  ArrowRightLeft, Loader2, Languages, Turtle, MessageCircle, 
+  HelpCircle, Trash2, ChevronDown, ChevronUp 
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { speak, cancelSpeech } from '@/lib/tts';
 import { LANGUAGES } from '@/lib/languages';
@@ -29,6 +35,14 @@ interface SavedPhrase {
   fromLang: string;
   toLang: string;
   savedAt: string;
+}
+
+interface ChatMessageType {
+  id: string;
+  type: 'user' | 'ai';
+  message: string;
+  translation?: string;
+  timestamp: Date;
 }
 
 const Translate: React.FC = () => {
@@ -49,6 +63,15 @@ const Translate: React.FC = () => {
   const [isPlayingSlow, setIsPlayingSlow] = useState(false);
   const [savedPhrases, setSavedPhrases] = useState<SavedPhrase[]>([]);
   const [showSaved, setShowSaved] = useState(false);
+
+  // Chat state
+  const [chatMode, setChatMode] = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMessageType[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const [showTopicSelector, setShowTopicSelector] = useState(false);
+  const [currentTopic, setCurrentTopic] = useState<string>('');
+  const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const recognitionRef = useRef<any>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -78,6 +101,13 @@ const Translate: React.FC = () => {
       navigate('/auth');
     }
   }, [user, authLoading, progressLoading, navigate]);
+
+  // Scroll to bottom of chat when new messages arrive
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatMessages]);
 
   const translateText = useCallback(async (text: string) => {
     if (!text.trim()) {
@@ -284,6 +314,179 @@ const Translate: React.FC = () => {
     setShowSaved(false);
   };
 
+  // Chat functionality
+  const sendChatMessage = async () => {
+    if (!inputText.trim() || isChatLoading) return;
+
+    const userMessage: ChatMessageType = {
+      id: Date.now().toString(),
+      type: 'user',
+      message: inputText,
+      translation: translatedText || undefined,
+      timestamp: new Date(),
+    };
+
+    setChatMessages(prev => [...prev, userMessage]);
+    const userInput = inputText;
+    setInputText('');
+    setTranslatedText('');
+    setIsChatLoading(true);
+
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          type: 'chat',
+          userMessage: userInput,
+          conversationHistory: chatMessages.map(m => ({
+            role: m.type,
+            content: m.message,
+          })),
+          languageCode: toLanguage,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Chat failed');
+      }
+
+      const data = await res.json();
+      
+      const aiMessage: ChatMessageType = {
+        id: (Date.now() + 1).toString(),
+        type: 'ai',
+        message: data.response,
+        translation: data.responseEnglish,
+        timestamp: new Date(),
+      };
+
+      setChatMessages(prev => [...prev, aiMessage]);
+
+      // Auto-play AI response
+      if (data.response) {
+        setPlayingMessageId(aiMessage.id);
+        try {
+          await speak(data.response, toLanguage, {
+            engine: settings.ttsEngine,
+            voiceURI: settings.ttsVoiceURI,
+          });
+        } catch (e) {
+          console.error('TTS error:', e);
+        }
+        setPlayingMessageId(null);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
+      toast({
+        title: 'Chat failed',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  const askMeQuestion = async (topicId?: string) => {
+    setIsChatLoading(true);
+    
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify({
+          type: 'ask_question',
+          languageCode: toLanguage,
+          topic: topicId || currentTopic || undefined,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to get question');
+      }
+
+      const data = await res.json();
+      
+      const aiMessage: ChatMessageType = {
+        id: Date.now().toString(),
+        type: 'ai',
+        message: data.question,
+        translation: data.questionEnglish,
+        timestamp: new Date(),
+      };
+
+      setChatMessages(prev => [...prev, aiMessage]);
+      setCurrentTopic(data.topic);
+
+      // Auto-play the question
+      if (data.question) {
+        setPlayingMessageId(aiMessage.id);
+        try {
+          await speak(data.question, toLanguage, {
+            engine: settings.ttsEngine,
+            voiceURI: settings.ttsVoiceURI,
+          });
+        } catch (e) {
+          console.error('TTS error:', e);
+        }
+        setPlayingMessageId(null);
+      }
+    } catch (error) {
+      console.error('Ask me error:', error);
+      toast({
+        title: 'Failed to get question',
+        description: error instanceof Error ? error.message : 'Please try again',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsChatLoading(false);
+    }
+  };
+
+  const handleTopicSelect = (topicId: string) => {
+    setCurrentTopic(topicId === 'random' ? '' : topicId);
+    askMeQuestion(topicId === 'random' ? undefined : topicId);
+  };
+
+  const playMessage = async (message: ChatMessageType) => {
+    if (playingMessageId) return;
+    
+    setPlayingMessageId(message.id);
+    try {
+      await speak(message.message, toLanguage, {
+        engine: settings.ttsEngine,
+        voiceURI: settings.ttsVoiceURI,
+      });
+    } catch (e) {
+      console.error('TTS error:', e);
+    }
+    setPlayingMessageId(null);
+  };
+
+  const clearChat = () => {
+    setChatMessages([]);
+    setCurrentTopic('');
+  };
+
+  const toggleChatMode = () => {
+    setChatMode(!chatMode);
+    if (!chatMode && chatMessages.length === 0) {
+      // Starting chat mode - show topic selector
+      setShowTopicSelector(true);
+    }
+  };
+
   if (authLoading || progressLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -291,8 +494,6 @@ const Translate: React.FC = () => {
       </div>
     );
   }
-
-  const filteredLanguages = LANGUAGES.filter(l => l.code !== 'en' || fromLanguage !== 'en');
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -361,7 +562,7 @@ const Translate: React.FC = () => {
             value={inputText}
             onChange={(e) => handleInputChange(e.target.value)}
             placeholder={fromLanguage === 'en' ? 'Type or speak to translate...' : `Type in ${LANGUAGES.find(l => l.code === fromLanguage)?.name || 'your language'}...`}
-            className="min-h-[120px] resize-none border-0 focus-visible:ring-0 p-0 text-lg"
+            className="min-h-[100px] resize-none border-0 focus-visible:ring-0 p-0 text-lg"
           />
           {/* Translate Button */}
           <div className="flex justify-end mt-2">
@@ -423,7 +624,7 @@ const Translate: React.FC = () => {
               </Button>
             </div>
           </div>
-          <div className="min-h-[120px] text-lg">
+          <div className="min-h-[100px] text-lg">
             {isTranslating ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -436,6 +637,91 @@ const Translate: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Chat Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            variant={chatMode ? "default" : "outline"}
+            className="flex-1 gap-2"
+            onClick={chatMode ? sendChatMessage : toggleChatMode}
+            disabled={chatMode && (!inputText.trim() || isChatLoading)}
+          >
+            <MessageCircle className="w-4 h-4" />
+            {chatMode ? (isChatLoading ? 'Sending...' : 'Chat') : 'Start Chat'}
+          </Button>
+          <Button
+            variant="outline"
+            className="flex-1 gap-2"
+            onClick={() => setShowTopicSelector(true)}
+            disabled={isChatLoading}
+          >
+            <HelpCircle className="w-4 h-4" />
+            Ask Me
+          </Button>
+        </div>
+
+        {/* Chat Messages Area */}
+        {(chatMode || chatMessages.length > 0) && (
+          <div className="bg-card rounded-2xl shadow-md overflow-hidden">
+            <div className="flex items-center justify-between p-3 border-b">
+              <h3 className="font-bold flex items-center gap-2">
+                💬 Conversation
+                {currentTopic && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({currentTopic})
+                  </span>
+                )}
+              </h3>
+              <div className="flex items-center gap-1">
+                {chatMessages.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={clearChat}>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setChatMode(!chatMode)}>
+                  {chatMode ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </Button>
+              </div>
+            </div>
+            
+            {chatMode && (
+              <div 
+                ref={chatContainerRef}
+                className="max-h-80 overflow-y-auto p-3"
+              >
+                {chatMessages.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-2xl mb-2">🦜</p>
+                    <p className="text-sm">
+                      Type a message or tap "Ask Me" to start practicing!
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {chatMessages.map(msg => (
+                      <ChatMessage
+                        key={msg.id}
+                        type={msg.type}
+                        message={msg.message}
+                        translation={msg.translation}
+                        timestamp={msg.timestamp}
+                        speaking={playingMessageId === msg.id}
+                        onPlayAudio={() => playMessage(msg)}
+                        isPlaying={playingMessageId === msg.id}
+                      />
+                    ))}
+                    {isChatLoading && (
+                      <div className="flex gap-2 items-center text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span className="text-sm">Thinking...</span>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Saved Phrases Section */}
         <div className="bg-card rounded-2xl p-4 shadow-md">
@@ -478,6 +764,13 @@ const Translate: React.FC = () => {
           )}
         </div>
       </main>
+
+      <TopicSelector
+        open={showTopicSelector}
+        onOpenChange={setShowTopicSelector}
+        onSelectTopic={handleTopicSelect}
+        selectedTopic={currentTopic}
+      />
 
       <BottomNavigation />
     </div>

@@ -1,12 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Bell, Clock, Calendar, Check } from 'lucide-react';
+import { ArrowLeft, Bell, Clock, Calendar, Check, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import BottomNavigation from '@/components/BottomNavigation';
+import { 
+  requestNotificationPermission as requestPermission, 
+  canUseNotifications,
+  sendNotification,
+  scheduleNotification 
+} from '@/lib/notifications';
 
 const PracticeReminders: React.FC = () => {
   const navigate = useNavigate();
@@ -16,6 +22,29 @@ const PracticeReminders: React.FC = () => {
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [selectedTime, setSelectedTime] = useState('09:00');
   const [selectedDays, setSelectedDays] = useState<Set<number>>(new Set([0, 1, 2, 3, 4, 5, 6]));
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default');
+
+  // Load saved settings
+  useEffect(() => {
+    const saved = localStorage.getItem('practiceReminders');
+    if (saved) {
+      try {
+        const settings = JSON.parse(saved);
+        setRemindersEnabled(settings.enabled);
+        setSelectedTime(settings.time);
+        setSelectedDays(new Set(settings.days));
+      } catch {
+        // ignore
+      }
+    }
+
+    // Check notification permission
+    if ('Notification' in window) {
+      setNotificationPermission(Notification.permission);
+    } else {
+      setNotificationPermission('unsupported');
+    }
+  }, []);
 
   const days = [
     { index: 0, short: 'Sun', full: 'Sunday' },
@@ -44,12 +73,20 @@ const PracticeReminders: React.FC = () => {
   };
 
   const handleSave = () => {
-    // In a real app, this would save to user preferences and set up push notifications
     localStorage.setItem('practiceReminders', JSON.stringify({
       enabled: remindersEnabled,
       time: selectedTime,
       days: Array.from(selectedDays)
     }));
+    
+    if (remindersEnabled && canUseNotifications()) {
+      // Send a test notification to confirm it works
+      sendNotification({
+        title: '✅ Reminders Saved!',
+        body: `You'll be reminded at ${selectedTime} on selected days.`,
+        tag: 'reminder-saved',
+      });
+    }
     
     toast({
       title: remindersEnabled ? 'Reminders enabled!' : 'Reminders disabled',
@@ -61,22 +98,51 @@ const PracticeReminders: React.FC = () => {
     navigate(-1);
   };
 
-  const requestNotificationPermission = async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        setRemindersEnabled(true);
-        toast({
-          title: 'Notifications enabled!',
-          description: 'You\'ll receive reminders to practice.',
-        });
-      } else {
-        toast({
-          title: 'Permission denied',
-          description: 'Enable notifications in your browser settings to receive reminders.',
-          variant: 'destructive',
-        });
-      }
+  const handleRequestPermission = async () => {
+    const granted = await requestPermission();
+    
+    if (granted) {
+      setNotificationPermission('granted');
+      setRemindersEnabled(true);
+      
+      // Send a welcome notification
+      sendNotification({
+        title: '🎉 Notifications Enabled!',
+        body: 'You\'ll now receive reminders to practice your language skills.',
+        tag: 'welcome',
+      });
+      
+      toast({
+        title: 'Notifications enabled!',
+        description: 'You\'ll receive reminders to practice.',
+      });
+    } else {
+      setNotificationPermission('denied');
+      toast({
+        title: 'Permission denied',
+        description: 'Enable notifications in your browser settings to receive reminders.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const testNotification = () => {
+    if (canUseNotifications()) {
+      sendNotification({
+        title: '🍌 DoubLango',
+        body: 'Hey! Time for your daily practice. Your streak is waiting! 🔥',
+        tag: 'test',
+        onClick: () => {
+          window.focus();
+        }
+      });
+      toast({ title: 'Test notification sent!' });
+    } else {
+      toast({
+        title: 'Notifications not available',
+        description: 'Please enable notifications first.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -108,7 +174,7 @@ const PracticeReminders: React.FC = () => {
               checked={remindersEnabled}
               onCheckedChange={(checked) => {
                 if (checked) {
-                  requestNotificationPermission();
+                  handleRequestPermission();
                 } else {
                   setRemindersEnabled(false);
                 }
